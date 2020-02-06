@@ -5,5 +5,6 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     path('login', views.login, name='login'),
-    path('plotform', views.plotform, name='plotform'),
+    path('logout', views.logout, name='logout'),
+    path('platform', views.platform, name='platform'),
 ]
