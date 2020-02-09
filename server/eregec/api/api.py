@@ -21,6 +21,8 @@ HttpArgumentError = ApiError(1, "HttpArgumentError")
 UserLoginError = ApiError(2, "UserLoginError")
 UserIdError = ApiError(3, "UserIdError")
 PlatformNotConnectError = ApiError(4, "PlatformNotConnectError")
+DataFaildError = ApiError(5, "DataFaildError")
+CommandFaildError = ApiError(6, "CommandFaildError")
 
 
 # 从http request里的POST/GET请求里取出args里指定的参数
@@ -50,16 +52,15 @@ def get_http_arg(request, args):
 # 否则返回(User, None)
 #
 # 该函数的用途是在每一个需要登录的请求发生时，检查用户是否登录
-def get_online_user_by_request(request):
-    res, err = get_http_arg(request, ("userid", ))
+def get_online_user_by_request(request, args=()):
+    res, err = get_http_arg(request, ('userid', ) + args)
     if err:
-        return None, json_error(err, HttpArgumentError)
+        return None, None, json_error(err, HttpArgumentError)
 
     user = User.get_online_user_by_id(res["userid"])
     if not user:
-        return None, json_error("no such user id '%s'" % res["userid"], UserIdError)
-    return user, None
-
+        return None, res, json_error("no such user id '%s'" % res["userid"], UserIdError)
+    return user, res, None
 
 # 返回一个json数据包
 # json的格式是：

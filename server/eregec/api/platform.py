@@ -12,7 +12,7 @@ from api import config
 # Data Socket用于上传数据
 # Cammand Socket用于下发命令
 DataSocket = 0
-CammandSocket = 1
+CommandSocket = 1
 
 # 平台服务器
 class PlatformServer:
@@ -75,6 +75,12 @@ class PlatformServer:
                 PlatformServer._platform.remove(platform)
                 return
 
+    @staticmethod
+    def close_all_platform():
+        for platform in PlatformServer._platform:
+            platform.close()
+        PlatformServer._platform.clear()
+
     # 监听端口，等待平台的连接
     def _accept(self):
         print('PlatformServer Thread is start running ...')
@@ -93,9 +99,9 @@ class PlatformServer:
                 head_string = client.recv(1024).decode()
                 res = self._parse_head(head_string)
                 if res:
-                    client.send('OK')
+                    client.send(b'OK')
                 else:
-                    client.send('error: Bad head')
+                    client.send(b'error: Bad head')
                     client.close()
                     continue
 
@@ -108,15 +114,20 @@ class PlatformServer:
                     if platform.data_socket:
                         platform.data_socket.close()
                     platform.data_socket = client
-                elif res['type'] == CammandSocket:
-                    if platform.cammand_socket:
+                    print('%s: Data Socke 已建立' % platform)
+                elif res['type'] == CommandSocket:
+                    if platform.command_socket:
                         platform.data_socket.close()
-                    platform.cammand_socket = client
+                    platform.command_socket = client
+                    print('%s: Cammand Socke 已建立'% platform)
 
                 if platform not in self._platform:
                     self._platform.append(platform)
-            except Exception as e:
-                print(e)
+
+                if platform.data_socket and platform.command_socket:
+                    print("%s: 所有socket创建完成！" % platform)
+            except Exception:
+                raise
 
 
 # 平台上报的数据
@@ -125,6 +136,13 @@ class PlatformData:
     def __init__(self):
         self.temperature = 0.0
 
+    # 获取平台的当前的上报数据
+    # temperature: 当前温度值
+    def get_data(self):
+        return {
+            "temperature": self.temperature,
+        }
+
 # 平台对象，表示一个在线的平台
 class Platform:
     def __init__(self, id, platform=''):
@@ -132,7 +150,7 @@ class Platform:
         self.platform = platform
 
         self.data_socket = None
-        self.cammand_socket = None
+        self.command_socket = None
 
         self.data = PlatformData()
 
@@ -143,16 +161,47 @@ class Platform:
         # 处理上报的数据和发送指定的命令
         self.run()
 
+    def __str__(self):
+        return 'Platform(id=%s, platform=%s)' % (self.id, self.platform)
+
     # 获取平台的当前的上报数据
     def get_data(self):
-        return {
-            "temperature": self.data.temperature,
-        }
+        if not self.data_socket:
+            return None, "data socket has been disconnected"
+        return self.data.get_data(), ""
 
     # 向平台发送一个命令
     # 在这里将命令写入cmd里，run函数发现cmd不为空时会通过command_socket发送命令
     def send_cmd(self, cmd):
-        self.cmd = cmd
+        if not self.command_socket:
+            return "command socket socket has been disconnected"
+        try:
+            self.command_socket.send(cmd.encode())
+            res = self.command_socket.recv(100).decode()
+            if res == "":
+                self.command_socket.close()
+                self.command_socket = None
+                return "command socket has been disconnected"
+            elif res == 'OK':
+                return ""
+            return res
+        except BrokenPipeError as e:
+            print("%s: Command Socket 已断开！" % self)
+            self.command_socket.close()
+            self.command_socket = None
+            return "%s" % e
+
+        except Exception:
+            raise
+
+    # 断开链接
+    def colse(self):
+        if self.command_socket:
+            self.command_socket.close()
+            self.command_socket = None
+        if self.data_socket:
+            self.data_socket.close()
+            self.data_socket = None
 
     # 解析data_socket接收到的平台上报的数据
     # data_socket一次性上报所有的数据
@@ -180,40 +229,29 @@ class Platform:
     # 开启一个线程用于接收平台上报的数据以及向平台发送命令
     def run(self):
         def _run():
-            print('Platform Thread is start running ...')
+            print('Data Socket Platform Thread is start running ...')
 
-            while True:
-                # 接收上报的数据
+            while self.data_socket:
+                # 接收上报的数据s
                 # 如果接收成功，服务器应答OK
                 # 否则服务器应答错误信息
-                if self.data_socket:
-                    try:
-                        data = self.data_socket.recv(1024).decode()
-                        res = self._parse_data(data)
-                        self.data_socket.send(res)
-                    except Exception as e:
-                        print(e)
+                try:
+                    data = self.data_socket.recv(1024).decode()
+                    res = self._parse_data(data)
+                    self.data_socket.send(res.encode())
+                except BrokenPipeError as e:
+                    print("%s: Data Socket 已断开:" % self, e)
+                    self.data_socket.close()
+                    self.data_socket = None
+                except Exception:
+                    raise
 
-                # 向平台发送命令
-                # 平台执行命令，如果成功，平台需要应答'OK'，如果失败，平台应答失败原因描述
-                elif self.cammand_socket:
-                    if self.cmd:
-                        try:
-                            self.cammand_socket.send(self.cmd)
-                            if self.cammand_socket.recv(50) == 'OK':
-                                self.cmd = None
-                            else:
-                                print('命令“%s”发送失败！将重新发送')
-                        except Exception as e:
-                            print(e)
+            # 两条socket均断开，认为平台已下线
+            #print("%s: 客户端已下线" % self)
+            #PlatformServer.del_platform_by_id(self.id)
+            #break
 
-                # 两条socket均断开，认为平台已下线
-                else:
-                    print("客户端已下线")
-                    PlatformServer.del_platform_by_id(self.id)
-                    break
-
-            print('Platform Thread was stoped')
+            #print('%s Thread was stoped' % self)
 
         # 开线槽执行上述过程
         threading.Thread(target=_run, daemon=True).start()
