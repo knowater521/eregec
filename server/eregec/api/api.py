@@ -77,4 +77,4 @@ def json_data(data={}, message="OK", code=0):
 
 # 对json_data做封装，返回一个错误
 def json_error(details="", err=NoError):
-    return json_data({"details": "error: %s" % details}, err.name, err.code)
+    return json_data({"details": details}, err.name, err.code)

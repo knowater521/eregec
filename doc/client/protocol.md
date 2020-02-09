@@ -47,7 +47,7 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 {
     "data": 
     {
-        "details": "error: password error"
+        "details": "password error"
     }, 
     "message": "UserLoginError", 
     "code": 2
