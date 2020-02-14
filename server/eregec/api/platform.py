@@ -1,8 +1,7 @@
-import threading
 # platform.py
 # 平台socket服务端和平台数据接收
 
-
+import threading
 import socket
 
 from api import config
@@ -41,7 +40,7 @@ class PlatformServer:
     # head:
     # 第一行：标题，是一个固定字符串："Electronic Ecological Estanciero Platform Socket"
     # 第二行：Socket类型，取值为 "Data Socket" 或者 "Cammand Socket"
-    # 第三行：平台名称，如："RaspberryPi", 或者 "Windows 7", "Ubuntu 16.04" ...
+    # 第三行：平台名称
     # 第四行：设备ID号
     # 第五行：结束标记，固定为"End"
     @staticmethod
@@ -123,52 +122,36 @@ class PlatformServer:
 
                 if platform not in self._platform:
                     self._platform.append(platform)
-
-                if platform.data_socket and platform.command_socket:
-                    print("%s: 所有socket创建完成！" % platform)
             except Exception:
                 raise
 
 
-# 平台上报的数据
-# temperature: 温度数据
-class PlatformData:
-    def __init__(self):
-        self.temperature = 0.0
-
-    # 获取平台的当前的上报数据
-    # temperature: 当前温度值
-    def get_data(self):
-        return {
-            "temperature": self.temperature,
-        }
-
 # 平台对象，表示一个在线的平台
 class Platform:
-    def __init__(self, id, platform=''):
+    def __init__(self, id, name=''):
         self.id = id
-        self.platform = platform
+        self.name = name
 
         self.data_socket = None
         self.command_socket = None
 
-        self.data = PlatformData()
-
-        # 保存要发送给平台的命令，为空表示没有命令
-        # 命令发送成功之后会将cmd置空
-        self.cmd = None
+        self.data = {}
 
         # 处理上报的数据和发送指定的命令
         self.run()
 
     def __str__(self):
-        return 'Platform(id=%s, platform=%s)' % (self.id, self.platform)
+        return 'Platform{id=%s, name=%s, data=%s}' % (self.id, self.platform, self.data)
 
     # 获取平台的当前的上报数据
     def get_data(self):
         if not self.data_socket:
             return None, "data socket has been disconnected"
-        return self.data.get_data(), ""
+        return self.data, ""
+
+    # 获取平台信息
+    def get_info(self):
+        return {"name": self.name, "id": self.id}, ""
 
     # 向平台发送一个命令
     # 在这里将命令写入cmd里，run函数发现cmd不为空时会通过command_socket发送命令
@@ -208,22 +191,35 @@ class Platform:
     #
     # 上报格式
     # 第一行：标题，固定字符串："Platform Data"
-    # 第二行：温度值：如 "37.5"
-    # 第三行：结束标记：固定字符串："End"
+    # 中间任意行：一条平台数据，格式："数据名称:数据类型:数据值"。分割符为英文字符':'； 
+    # 数据类型包含：int、float、string三类；
+    # 最后一行：结束标记：固定字符串："End"
     def _parse_data(self, data_string):
         title = 'Platform Data'
         end = 'End'
         lines = 3
 
         data = data_string.splitlines()
-        if len(data) != lines or data[0] != title or data[lines - 1] != end:
+        if len(data) != lines or data[0] != title or data[-1] != end:
             return '数据格式不正确'
 
         try:
-            self.data.temperature = float(data[1])
+            for data_string in data[1:-1]:
+                data_tokens = data_string.split(':')
+                if len(data_tokens) != 3:
+                    return '数据格式不正确'
+                data_name = data_tokens[0].strip()
+                data_type = data_tokens[1].strip()
+                data_value = data_tokens[2].strip()
+                if data_type == "int":
+                    data_value = int(data_value)
+                elif data_type == 'float':
+                    data_value = float(data)
+                elif data_type != 'string':
+                    return '不支持的数据格式“%s”' % data_type
+                self.data[data_name] = data_value
         except ValueError:
-            return '无法解析的温度值'
-        
+            return '无法解析的数据'
         return "OK"
         
     # 开启一个线程用于接收平台上报的数据以及向平台发送命令
@@ -245,13 +241,6 @@ class Platform:
                     self.data_socket = None
                 except Exception:
                     raise
-
-            # 两条socket均断开，认为平台已下线
-            #print("%s: 客户端已下线" % self)
-            #PlatformServer.del_platform_by_id(self.id)
-            #break
-
-            #print('%s Thread was stoped' % self)
 
         # 开线槽执行上述过程
         threading.Thread(target=_run, daemon=True).start()
