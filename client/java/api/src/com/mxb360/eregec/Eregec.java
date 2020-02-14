@@ -2,18 +2,6 @@ package com.mxb360.eregec;
 
 import com.mxb360.http.HttpClient;
 
-class User {
-    String name = null;
-    String password = null;
-    String id = null;
-
-    public User(String name, String password) {
-        this.name = name;
-        this.password = password;
-        this.id = "";
-    }
-}
-
 public class Eregec {
     private HttpClient loginHttpClient = null;
     private String errorMessage = "";
@@ -40,7 +28,7 @@ public class Eregec {
         return loginJsonResult.isOk();
     }
 
-    public boolean loginOk() {
+    public boolean isLogin() {
         return loginJsonResult != null && loginJsonResult.isOk();
     }
 
@@ -49,7 +37,7 @@ public class Eregec {
     }
 
     public String getUserId() {
-        return loginOk() ? loginJsonResult.getUserId() : "";
+        return isLogin() ? loginJsonResult.getUserId() : "";
     }
 
     public String getErrorMessage() {
