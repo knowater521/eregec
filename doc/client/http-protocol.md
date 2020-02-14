@@ -108,7 +108,6 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
   请求     | [/eregec/api/platform-data](http://mxb360.top/eregec/api/platform)  
   功能     | 返回用户平台的实时数据
   参数     | `userid        ` 用户ID(必需参数)
-  参数     | `name          ` 数据名(可选参数) 如果有此参数，只返回指定数据，否则返回全部数据
   返回     | 数据名称：数据值...
 操作成功后完整的返回例子：
 ```json
@@ -130,12 +129,14 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
   功能     | 返回用户平台的实时数据
   参数     | `userid  ` 用户ID(必需参数)
   返回     | `"name"  ` 平台名称
+  返回     | `"id"  `   平台ID
 操作成功后完整的返回例子：
 ```json
 {
     "data":
     {
         "name": "RaspberryPi",
+        "id": "eregecuserplatform"
     },
     "message": "OK",
     "code": 0

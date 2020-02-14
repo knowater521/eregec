@@ -6,7 +6,7 @@
 
 ### 代码
 
-此C语言硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[eregec/c/api](https://github.com/mxb360/eregec/blob/master/eregec/c/api)目录里。  
+此C语言硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[eregec/c](https://github.com/mxb360/eregec/blob/master/eregec/c)目录里。  
 
 
 要成功使用本代码，需要安装opencv库：
@@ -109,7 +109,7 @@
 * 返回：
     * true表示已连接，false表示未连接
 
-#### bool eregec_is_socket_connected(void)
+#### bool eregec_is_connected(void)
 * 参数：
     * 无
 * 功能：

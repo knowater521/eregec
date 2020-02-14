@@ -5,7 +5,7 @@
 
 ### 代码
 
-此Python3硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[platform/python/api](https://github.com/mxb360/eregec/blob/master/platform/python/api)目录里的[eregec.py](https://github.com/mxb360/eregec/blob/master/platform/python/api/eregec.py)里。
+此Python3硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[platform/python](https://github.com/mxb360/eregec/blob/master/platform/python)目录里的[eregec.py](https://github.com/mxb360/eregec/blob/master/platform/python/eregec.py)里。
 
 ### 环境搭建
 
@@ -113,7 +113,7 @@ sudo apt install python3-opencv
 * 返回：
     * True表示已连接，False表示未连接
 
-#### is_socket_connected()
+#### is_connected()
 * 参数：
     * 无
 * 功能：
