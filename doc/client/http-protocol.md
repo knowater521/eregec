@@ -1,6 +1,4 @@
-<!-- toc -->
-
-# 客户端通信协议
+# HTTP接口(通信协议)
 
 **说明：在本文档里列出的http请求均省略了域名，例如，服务器的域名为[mxb360.top](http://mxb360.top),文档给的http请求为[/eregec/api/index](http://mxb360.top/eregec/api/index)，则完整的http请求应该是[http://mxb360.top/eregec/api/index](http://mxb360.top/eregec/api/index)**
 
@@ -107,25 +105,44 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 ##### 3. 平台数据请求
 平台数据请求| 　　 
 -----------|-----------------------------------------------------------
-  请求     | [/eregec/api/platform](http://mxb360.top/eregec/api/platform)  
-  功能     | 用户平台的实时数据
+  请求     | [/eregec/api/platform-data](http://mxb360.top/eregec/api/platform)  
+  功能     | 返回用户平台的实时数据
   参数     | `userid        ` 用户ID(必需参数)
-  返回     | `"name"        ` 平台名称(字符串)
-  返回     | `"temperature" ` 平台温度(浮点型)
+  参数     | `name          ` 数据名(可选参数) 如果有此参数，只返回指定数据，否则返回全部数据
+  返回     | 数据名称：数据值...
 操作成功后完整的返回例子：
 ```json
 {
     "data":
     {
-        "name": "Ubuntu 18.04 LTS",
-        "temperature": 37.5
+        "temperature": 37.5,
+        "humidity": 25.2
     },
     "message": "OK",
     "code": 0
 }
 ```
 
-##### 4. 向平台发送命令
+##### 4. 平台信息获取
+平台信息获取| 　　 
+-----------|-----------------------------------------------------------
+  请求     | [/eregec/api/platform-info](http://mxb360.top/eregec/api/platform)  
+  功能     | 返回用户平台的实时数据
+  参数     | `userid  ` 用户ID(必需参数)
+  返回     | `"name"  ` 平台名称
+操作成功后完整的返回例子：
+```json
+{
+    "data":
+    {
+        "name": "RaspberryPi",
+    },
+    "message": "OK",
+    "code": 0
+}
+```
+
+##### 5. 向平台发送命令
 向平台发送命令 | 　　 
 --------------|-----------------------------------------------------------
     请求      | [/eregec/api/cmd](http://mxb360.top/eregec/api/cmd)  
@@ -145,7 +162,7 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 }
 ```
 
-##### 5. 用户登出
+##### 6. 用户登出
 用户登出   | 　　 
 -----------|-----------------------------------------------------------
   请求     | [/eregec/api/logout](http://mxb360.top/eregec/api/logout)  

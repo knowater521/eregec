@@ -1,7 +1,7 @@
 # Java语言接口
 
 ### 介绍
-为了方便客户端的开发，本项目提供了对客户端的连接协议做了一个基于Java的封装，屏蔽了客户端与服务器之间的连接协议。  
+为了方便客户端的开发，本项目提供了对客户端的连接协议做了一个基于Java的封装，屏蔽了客户端与服务器之间的连接协议。(封装服务器的HTTP协议)  
 提供本代码的目的是方便用户使用Java语言快速的开发本服务器的客户端，如Android App或者基于Java的PC端。
 
 ### 代码
@@ -102,3 +102,99 @@ public class Main {
     }
 }
 ```
+
+### 所有API
+
+#### Class Eregec:
+
+#### Eregec(String host)
+* 参数：
+    * host: 服务器域名或者IP:端口
+* 功能：
+    * 构造器
+
+#### boolean login(String userName, String password)
+* 参数：
+    * userName: 用户名
+    * password: 密码
+* 功能:
+    * 用户登录服务器
+* 返回：
+    * 登录成功返回true，失败返回false（可用getErrorMessage()获取失败原因字符串描述）
+
+#### void logout()
+* 参数：
+    * 无
+* 功能:
+    * 用户登出
+* 返回：
+    * 无
+
+#### String getUserId() 
+* 参数：无
+* 功能：
+    * 获取用户ID
+* 返回：
+    * 返回用户ID，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### String getErrorMessage() 
+* 参数：无
+* 功能：
+    * 获取错误信息描述
+* 返回：
+    * 错误信息描述字符串
+
+#### Integer getIntegerPlatformData(String name) 
+* 参数：
+*   name: 数据名
+* 功能：
+    * 根据数据名取出相应数据
+* 返回：
+    * 返回相应数据，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### Float getFloatPlatformData(String name) 
+* 参数：
+*   name: 数据名
+* 功能：
+    * 根据数据名取出相应数据
+* 返回：
+    * 返回相应数据，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### String getStringPlatformData(String name) 
+* 参数：
+*   name: 数据名
+* 功能：
+    * 根据数据名取出相应数据
+* 返回：
+    * 返回相应数据，失败回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### String getPlatformName() 
+* 参数：
+*   无
+* 功能：
+    * 获取平台名称
+* 返回：
+    * 返回平台名称，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### String getPlatformID() 
+* 参数：
+*   无
+* 功能：
+    * 获取平台ID
+* 返回：
+    * 返回平台ID，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+
+#### boolean isLogin()
+* 参数：无
+* 功能：
+    * 判断当前是否登录状态
+* 返回：
+    * 如果处于登录状态，返回true，否则返回false
+
+#### bool sendCommand(String command)
+* 参数：
+    * command: 命令字符串
+* 功能：
+    * 向平台发送指定命令
+* 返回：
+    * 成功返回true，失败返回false（可用getErrorMessage()获取失败原因字符串描述）

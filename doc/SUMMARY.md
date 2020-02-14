@@ -6,11 +6,11 @@
     * [运行服务器](server/run-server.md)
     * [服务器配置](server/server-config.md)
 * [硬件平台接口](platform/readme.md)
-    * [硬件通信协议](platform/protocol.md)
+    * [Socket接口(通信协议)](platform/socket-protocol.md)
     * [C语言接口](platform/c-lang.md)
     * [Python语言接口](platform/python-lang.md)
 * [客户端接口](client/readme.md)
-    * [客户端通信协议](client/protocol.md)
+    * [HTTP接口(通信协议)](client/http-protocol.md)
     * [Java语言接口](client/java-lang.md)
     * [Python语言接口](client/python-lang.md)
 
