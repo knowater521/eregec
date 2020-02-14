@@ -1,7 +1,7 @@
 from api import api
 from api.user import User
 from api import config
-from api.platform import PlatformServer, PlatformData, Platform
+from api.platform import PlatformServer, Platform
 
 
 # 启动平台服务器，监听平台的socket连接

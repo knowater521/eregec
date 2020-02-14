@@ -95,6 +95,7 @@ class PlatformServer:
             print('接收到Socket连接:', addr)
 
             try:
+                client.send(b'Electronic Ecological Estanciero Server')
                 head_string = client.recv(1024).decode()
                 res = self._parse_head(head_string)
                 if res:
@@ -141,7 +142,7 @@ class Platform:
         self.run()
 
     def __str__(self):
-        return 'Platform{id=%s, name=%s, data=%s}' % (self.id, self.platform, self.data)
+        return 'Platform{id=%s, name=%s, data=%s}' % (self.id, self.name, self.data)
 
     # 获取平台的当前的上报数据
     def get_data(self):
@@ -197,29 +198,31 @@ class Platform:
     def _parse_data(self, data_string):
         title = 'Platform Data'
         end = 'End'
-        lines = 3
 
         data = data_string.splitlines()
-        if len(data) != lines or data[0] != title or data[-1] != end:
-            return '数据格式不正确'
+        if not data or data[0].strip() != title or data[-1].strip() != end:
+            return 'Data Format Error: Bad start string or end string'
 
         try:
             for data_string in data[1:-1]:
+                data_string = data_string.strip()
+                if not data_string:
+                    continue
                 data_tokens = data_string.split(':')
                 if len(data_tokens) != 3:
-                    return '数据格式不正确'
+                    return 'Data Format Error: %s: Should be NAME:TYPE:VALUE' % data_string
                 data_name = data_tokens[0].strip()
                 data_type = data_tokens[1].strip()
                 data_value = data_tokens[2].strip()
                 if data_type == "int":
                     data_value = int(data_value)
                 elif data_type == 'float':
-                    data_value = float(data)
+                    data_value = float(data_value)
                 elif data_type != 'string':
-                    return '不支持的数据格式“%s”' % data_type
+                    return 'Data Format Error: %s: Unknown type' % (data_string)
                 self.data[data_name] = data_value
-        except ValueError:
-            return '无法解析的数据'
+        except ValueError as e:
+            return 'Data Format Error: %s: %s' % (data_string, e)
         return "OK"
         
     # 开启一个线程用于接收平台上报的数据以及向平台发送命令
@@ -234,6 +237,9 @@ class Platform:
                 try:
                     data = self.data_socket.recv(1024).decode()
                     res = self._parse_data(data)
+                    if res != 'OK':
+                        print("\ndata package parse failed: ", res)
+                        print("data package: \n", data)
                     self.data_socket.send(res.encode())
                 except BrokenPipeError as e:
                     print("%s: Data Socket 已断开:" % self, e)
