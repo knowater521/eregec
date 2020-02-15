@@ -20,7 +20,6 @@ class PlatformClient:
         self.__data = {}
         self.__data_buf = {}
         self.__exec_cmd_func = None
-        self.__error_message = ""
 
     def __perror(self, err):
         print('PlatformClient: Error: ' + err)
@@ -39,8 +38,8 @@ class PlatformClient:
     # 第五行：结束标记，固定为"End"
     def __create_head(self, type):
         title = 'Electronic Ecological Estanciero Platform Socket'
-        socket_type = ['Data Socket', 'Cammand Socket']
-        end = 'end'
+        socket_type = ['Data Socket', 'Command Socket']
+        end = 'End'
 
         return title + '\n' + socket_type[type] + '\n' + self.__name + '\n' + self.__id + '\n' + end
 
@@ -67,18 +66,23 @@ class PlatformClient:
 
         return title + '\n' + data_string + end
     
-    def __connec_socket(self, server_socket, type, type_name):
+    def __connec_socket(self, server_socket, type, socket_name):
         try:
-            self.__pinfo("%s: Try to connect server: %s:%d" % (type_name, self.__host, self.__port))
+            self.__pinfo("%s: Try to connect server: %s:%d" % (socket_name, self.__host, self.__port))
             server_socket.connect((self.__host, self.__port))
             server_socket.send(self.__create_head(type).encode())
+            if server_socket.recv(1024) != b'Electronic Ecological Estanciero Server':
+                self.__perror('%s connect failed: Bad Server Return' % socket_name)
             res = server_socket.recv(20).decode()
             if res != 'OK':
                 server_socket.close()
-                self.__perror(type_name + ' connect failed: Server return: "%s"' % (type_name, res))
+                self.__perror(socket_name + ' connect failed: Server return: "%s"' % res)
+                return False
+            self.__pinfo('%s is connected' % socket_name)
+            
             return True
         except Exception as e:
-            self.__perror(type_name + ' connect failed: ' + str(e))
+            self.__perror(socket_name + ' connect failed: ' + str(e))
 
     def connect(self):
         data_socket_ok = self.connect_data_socket()
@@ -131,9 +135,6 @@ class PlatformClient:
 
     def set_float_data(self, name, value): 
         self.__data[name] = value
-
-    def get_error_message(self):
-        return self.__error_message
 
     def set_command_callback(self, callback_func):
         self.__exec_cmd_func = callback_func
