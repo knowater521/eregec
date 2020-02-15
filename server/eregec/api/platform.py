@@ -26,7 +26,7 @@ class PlatformServer:
         self.accept_socket = None
 
         # 开启一个线程，监听端口，等待平台连接
-        threading.Thread(target=self._accept, daemon=True).start()
+        threading.Thread(target=self.__accept, daemon=True).start()
 
     # 运行服务器，就是创建一个PlatformServer对象
     @staticmethod
@@ -46,8 +46,8 @@ class PlatformServer:
     @staticmethod
     def _parse_head(head_string):
         title = 'Electronic Ecological Estanciero Platform Socket'
-        socket_type = ['Data Socket', 'Cammand Socket']
-        end = 'end'
+        socket_type = ['Data Socket', 'Command Socket']
+        end = 'End'
         res = {}
 
         head = head_string.splitlines()
@@ -81,7 +81,7 @@ class PlatformServer:
         PlatformServer._platform.clear()
 
     # 监听端口，等待平台的连接
-    def _accept(self):
+    def __accept(self):
         print('PlatformServer Thread is start running ...')
 
         self.accept_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,39 +92,41 @@ class PlatformServer:
 
         while True:
             client, addr = self.accept_socket.accept()
-            print('接收到Socket连接:', addr)
+            print('accept: Get Socket connect:', addr)
+            threading.Thread(target=self.__check_head, args=(client, addr), daemon=True).start()
 
-            try:
-                client.send(b'Electronic Ecological Estanciero Server')
-                head_string = client.recv(1024).decode()
-                res = self._parse_head(head_string)
-                if res:
-                    client.send(b'OK')
-                else:
-                    client.send(b'error: Bad head')
-                    client.close()
-                    continue
+    def __check_head(self, client, addr):
+        try:
+            client.send(b'Electronic Ecological Estanciero Server')
+            head_string = client.recv(1024).decode()
+            res = self._parse_head(head_string)
+            if res:
+                client.send(b'OK')
+            else:
+                client.send(b'Bad head')
+                client.close()
+                print(addr, 'Connection refused! Bad head:\n', head_string)
+                return
+            # 将socke发来的身份信息填充到平台对象
+            # 并将其添加的在线平台列表里
+            platform = self.get_platform_by_id(res['id'])
+            if not platform:
+                platform = Platform(res['id'], res['type'])
+            if res['type'] == DataSocket:
+                if platform.data_socket:
+                    platform.data_socket.close()
+                platform.data_socket = client
+                print('%s: Data Socke Connected' % platform)
+            elif res['type'] == CommandSocket:
+                if platform.command_socket:
+                    platform.data_socket.close()
+                platform.command_socket = client
+                print('%s: Cammand Socke Connected'% platform)
 
-                # 将socke发来的身份信息填充到平台对象
-                # 并将其添加的在线平台列表里
-                platform = self.get_platform_by_id(res['id'])
-                if not platform:
-                    platform = Platform(res['id'], res['type'])
-                if res['type'] == DataSocket:
-                    if platform.data_socket:
-                        platform.data_socket.close()
-                    platform.data_socket = client
-                    print('%s: Data Socke 已建立' % platform)
-                elif res['type'] == CommandSocket:
-                    if platform.command_socket:
-                        platform.data_socket.close()
-                    platform.command_socket = client
-                    print('%s: Cammand Socke 已建立'% platform)
-
-                if platform not in self._platform:
-                    self._platform.append(platform)
-            except Exception:
-                raise
+            if platform not in self._platform:
+                self._platform.append(platform)
+        except Exception:
+            raise
 
 
 # 平台对象，表示一个在线的平台
@@ -142,7 +144,7 @@ class Platform:
         self.run()
 
     def __str__(self):
-        return 'Platform{id=%s, name=%s, data=%s}' % (self.id, self.name, self.data)
+        return 'Platform{id=%s, name=%s}' % (self.id, self.name)
 
     # 获取平台的当前的上报数据
     def get_data(self):
@@ -236,11 +238,12 @@ class Platform:
                 # 否则服务器应答错误信息
                 try:
                     data = self.data_socket.recv(1024).decode()
-                    res = self._parse_data(data)
-                    if res != 'OK':
-                        print("\ndata package parse failed: ", res)
-                        print("data package: \n", data)
-                    self.data_socket.send(res.encode())
+                    if data:
+                        res = self._parse_data(data)
+                        if res != 'OK':
+                            print("\ndata package parse failed: ", res)
+                            print("data package: \n", data)
+                        self.data_socket.send(res.encode())
                 except BrokenPipeError as e:
                     print("%s: Data Socket 已断开:" % self, e)
                     self.data_socket.close()
