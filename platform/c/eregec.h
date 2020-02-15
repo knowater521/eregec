@@ -1,7 +1,14 @@
 #ifndef __EREGEC_PLATFORM_CLIENT_H__
 #define __EREGEC_PLATFORM_CLIENT_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
+
+#define COMMAND_FAILED(s)  s
+#define COMMAND_OK(s)      "OK"
 
 void eregec_init(const char *id, const char *name, const char *host, int port);
 
@@ -32,5 +39,9 @@ void eregec_set_float_data(const char *name, float value);
 void eregec_set_string_data(const char *name, const char  *value);
 
 bool eregec_upload_data(void);
+
+#ifdef __cplusplus
+} // extern "C" {
+#endif
 
 #endif

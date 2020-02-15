@@ -14,17 +14,20 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 typedef int socket_t;
-
-#define closesocket close
+static pthread_t _pid;
 
 #define socket_init()       ((void)0)  
+#define closesocket(fd)     close(fd)
 #define get_socket_error()  strerror(errno) 
+#define start_thread(func)  pthread_create(&_pid, NULL, (void *(*)(void *))func, NULL)
 
-#endif
+#endif /* __linux */
 
 #ifdef  _WIN32
+#include <Windows.h>
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 
@@ -54,7 +57,10 @@ static bool eregec_socket_init()
     return true;
 } 
 
-#endif
+#define start_thread(func)  CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, NULL, 0, NULL)
+
+#endif /* _WIN32 */
+
 
 #include "eregec.h"
 
@@ -63,13 +69,19 @@ static bool eregec_socket_init()
 #define eregec_pinfo(...)     printf("PlatformClient: Info: " __VA_ARGS__)
 #define BAD_SOCKET            (socket_t)0
 
-#define MAX_ID_SIZE 1023
-#define MAX_NAME_SIZE 1023
-#define MAX_HOST_SIZE 1023
-#define MAX_ERROR_SIZE 1023
-#define MAX_SOCKET_BUF_SIZE 4095
+#define MAX_ID_SIZE           127
+#define MAX_NAME_SIZE         127
+#define MAX_HOST_SIZE         127
+#define MAX_ERROR_SIZE        1023
+#define MAX_SOCKET_BUF_SIZE   1023
+#define MAX_DATA_COUNT        32
+
+#define DATA_SOCKET           0
+#define COMMAND_SOCKET        1
+static const char *SOCKET_NAME[] = {"Data Socket", "Command Socket"};
 
 struct {
+    bool is_init;
     char id[MAX_ID_SIZE + 1];
     char name[MAX_NAME_SIZE + 1];
     char host[MAX_HOST_SIZE + 1];
@@ -78,12 +90,99 @@ struct {
     socket_t data_socket;
     socket_t command_socket;
 
+    char int_data_name[MAX_DATA_COUNT][MAX_NAME_SIZE];
+    int  int_data_value[MAX_DATA_COUNT];
+    int  int_data_count;
+
+    char  float_data_name[MAX_DATA_COUNT][MAX_NAME_SIZE];
+    float float_data_value[MAX_DATA_COUNT];
+    int   float_data_count;
+
+    char string_data_name[MAX_DATA_COUNT][MAX_NAME_SIZE];
+    char string_data_value[MAX_DATA_COUNT][MAX_NAME_SIZE];
+    int  string_data_count;
+
     const char *(*callback_func)(const char *);
+} platform_client = {
+    .data_socket = BAD_SOCKET,
+    .command_socket = BAD_SOCKET,
+};
 
-    char error_message_buf[MAX_ERROR_SIZE + 1];
-} platform_client;
+/*
+* head:
+* 第一行：标题，是一个固定字符串："Electronic Ecological Estanciero Platform Socket"
+* 第二行：Socket类型，取值为 "Data Socket" 或者 "Cammand Socket"
+* 第三行：平台名称
+* 第四行：设备ID号
+* 第五行：结束标记，固定为"End"
+*/
+static char *create_head(char *buf, int socket_type)
+{
+    strcpy(buf, "Electronic Ecological Estanciero Platform Socket\n");
+    strcat(buf, SOCKET_NAME[socket_type]);
+    strcat(buf, "\n");
+    strcat(buf, platform_client.name);
+    strcat(buf, "\n");
+    strcat(buf, platform_client.id);
+    strcat(buf, "\nEnd");
+    return buf;
+}
 
-static socket_t connect_socket(const char *socket_name)
+static bool send_string(int socket_type, const char *string)
+{
+    socket_t *pfd;
+
+    if (string == NULL || string[0] == 0)
+        return false;
+
+    switch (socket_type) {
+        case DATA_SOCKET: pfd = &platform_client.data_socket; break;
+        case COMMAND_SOCKET: pfd = &platform_client.command_socket; break;
+        default: return false;
+    }
+
+    if (*pfd == BAD_SOCKET) {
+        eregec_perror("%s: send(): socket not connected(bad socket)\n", SOCKET_NAME[socket_type]);
+        return false;
+    }
+
+    if (send(*pfd, string, strlen(string), 0) <= 0) {
+        eregec_perror("%s: send(): %s\n", SOCKET_NAME[socket_type], get_socket_error());
+        eregec_perror("%s Broken!\n",  SOCKET_NAME[socket_type]);
+        *pfd = BAD_SOCKET;
+        return false;
+    }
+    return true;
+}
+
+static bool recv_string(int socket_type, char *string)
+{
+    socket_t *pfd;
+
+    switch (socket_type) {
+        case DATA_SOCKET: pfd = &platform_client.data_socket; break;
+        case COMMAND_SOCKET: pfd = &platform_client.command_socket; break;
+        default: return false;
+    }
+
+    if (*pfd == BAD_SOCKET) {
+        eregec_perror("%s: recv(): socket not connected(bad socket)\n", SOCKET_NAME[socket_type]);
+        return false;
+    }
+
+    int ret;
+    if ((ret = recv(*pfd, string, MAX_SOCKET_BUF_SIZE, 0)) <= 0) {
+        if (ret)
+            eregec_perror("%s: recv(): %s\n",  SOCKET_NAME[socket_type], get_socket_error());
+        eregec_perror("%s Broken!\n",  SOCKET_NAME[socket_type]);
+        *pfd = BAD_SOCKET;
+        return false;
+    }
+    string[ret] = 0;
+    return true;
+}
+
+static socket_t connect_socket(int socket_type)
 {
     socket_t fd; 
     char recv_buf[MAX_SOCKET_BUF_SIZE + 1];
@@ -91,9 +190,14 @@ static socket_t connect_socket(const char *socket_name)
     char *host = platform_client.host;
     int port = platform_client.port;
 
-    eregec_pinfo("%s: Try to connect server %s:%d\n", socket_name, host, port);
+    if (!platform_client.is_init) {
+        eregec_perror("cannot connect server! platform client not init!\n");
+        return BAD_SOCKET;
+    }
+
+    eregec_pinfo("%s: Try to connect server %s:%d\n", SOCKET_NAME[socket_type], host, port);
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        eregec_perror("%s connect faild: socket(): %s\n", socket_name, get_socket_error());
+        eregec_perror("%s connect faild: socket(): %s\n", SOCKET_NAME[socket_type], get_socket_error());
         return BAD_SOCKET;
     }
 
@@ -101,22 +205,53 @@ static socket_t connect_socket(const char *socket_name)
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(port);
     if (inet_pton(AF_INET, host, &servaddr.sin_addr) <= 0) {
-        eregec_perror("%s connect faild: inet_pton(): %s\n", socket_name, get_socket_error());
+        eregec_perror("%s connect faild: inet_pton(): %s\n", SOCKET_NAME[socket_type], get_socket_error());
         return BAD_SOCKET;
     }
     if (connect(fd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
-        eregec_perror("%s connect failed: connect(): %s\n", socket_name, get_socket_error());
+        eregec_perror("%s connect failed: connect(): %s\n", SOCKET_NAME[socket_type], get_socket_error());
         return BAD_SOCKET;
     }
 
     recv(fd, recv_buf, MAX_SOCKET_BUF_SIZE, 0);
     if (strcmp(recv_buf, "Electronic Ecological Estanciero Server")) {
-        eregec_perror("%s connect failed: Bad Server Return", socket_name);
+        eregec_perror("%s connect failed: Bad Server Return\n", SOCKET_NAME[socket_type]);
+        closesocket(fd);
         return BAD_SOCKET;
     }
-    eregec_pinfo("%s is connected\n", socket_name);
+
+    create_head(recv_buf, socket_type);
+    send(fd, recv_buf, strlen(recv_buf), 0);
+    memset(recv_buf, 0, sizeof recv_buf);
+    recv(fd, recv_buf, MAX_SOCKET_BUF_SIZE, 0);
+    if (strcmp(recv_buf, "OK")) {
+        eregec_perror("%s connect failed: Server return: %s\n", SOCKET_NAME[socket_type], recv_buf);
+        closesocket(fd);
+        return BAD_SOCKET;
+    }
+    eregec_pinfo("%s is connected\n", SOCKET_NAME[socket_type]);
 
     return fd;
+}
+
+void get_cmd(void)
+{
+    char cmd_buf[MAX_SOCKET_BUF_SIZE + 1];
+
+    eregec_pinfo("get_cmd: start get cmd thread ...\n");
+    while (platform_client.command_socket != BAD_SOCKET) {
+        if (!recv_string(COMMAND_SOCKET, cmd_buf))
+            continue;
+        eregec_pinfo("get_cmd: client send cammand \"%s\"\n", cmd_buf);
+        if (!platform_client.callback_func) {
+            eregec_pwarning("get_cmd: Command Ignored(callback_func not set)\n");
+            send_string(COMMAND_SOCKET, "command ignored");
+            continue;
+        }
+        send_string(COMMAND_SOCKET, platform_client.callback_func(cmd_buf));
+    }
+
+    eregec_pinfo("get_cmd: get cmd thread stoped\n");
 }
 
 void eregec_init(const char *id, const char *name, const char *host, int port)
@@ -130,6 +265,7 @@ void eregec_init(const char *id, const char *name, const char *host, int port)
     strncpy(platform_client.name, name, MAX_NAME_SIZE);
     strncpy(platform_client.host, host, MAX_HOST_SIZE);
     platform_client.port = port;
+    platform_client.is_init = true;
 }
 
 bool eregec_connect(void)
@@ -141,14 +277,15 @@ bool eregec_connect(void)
 
 bool eregec_connect_command_socket(void)
 {
-    platform_client.data_socket = connect_socket("Command Socket");
-    return platform_client.data_socket != BAD_SOCKET;
+    platform_client.command_socket = connect_socket(COMMAND_SOCKET);
+    start_thread(get_cmd);
+    return platform_client.command_socket != BAD_SOCKET;
 }
 
 bool eregec_connect_data_socket(void)
 {
-    platform_client.command_socket = connect_socket("Data Socket");
-    return platform_client.command_socket != BAD_SOCKET;
+    platform_client.data_socket = connect_socket(DATA_SOCKET);
+    return platform_client.data_socket != BAD_SOCKET;
 }
 
 void eregec_disconnect(void)
@@ -161,6 +298,7 @@ void eregec_disconnect_command_socket(void)
 {
     if (platform_client.command_socket != BAD_SOCKET) {
         closesocket(platform_client.command_socket);
+        platform_client.command_socket = BAD_SOCKET;
         eregec_pinfo("Command Socket: close()\n");
     }
 }
@@ -170,12 +308,8 @@ void eregec_disconnect_data_socket(void)
     if (platform_client.data_socket != BAD_SOCKET) {
         closesocket(platform_client.data_socket);
         eregec_pinfo("Data Socket: close()\n");
+        platform_client.data_socket = BAD_SOCKET;
     }
-}
-
-const char *eregec_get_error_message(void)
-{
-    return platform_client.error_message_buf;
 }
 
 bool eregec_is_command_socket_connected(void)
@@ -200,20 +334,90 @@ void eregec_set_cmd_callback(const char *(*callback_func)(const char *cmd))
 
 void eregec_set_int_data(const char *name, int value)
 {
+    int int_data_count = platform_client.int_data_count;
+    int index = int_data_count;
 
+    if (index >= MAX_DATA_COUNT)
+        return;
+
+    for (int i = 0; i < int_data_count; i++)
+        if (!strcmp(name, platform_client.int_data_name[i])) {
+            index = i;
+            break;
+        }
+
+    platform_client.int_data_value[index] = value;
+    if (index == int_data_count) {
+        strcpy(platform_client.int_data_name[index], name);
+        platform_client.int_data_count++;
+    }
 }
 
 void eregec_set_float_data(const char *name, float value)
 {
+    int float_data_count = platform_client.float_data_count;
+    int index = float_data_count;
 
+    if (index >= MAX_DATA_COUNT)
+        return;
+
+    for (int i = 0; i < float_data_count; i++)
+        if (!strcmp(name, platform_client.float_data_name[i])) {
+            index = i;
+            break;
+        }
+
+    platform_client.float_data_value[index] = value;
+    if (index == float_data_count) {
+        strcpy(platform_client.float_data_name[index], name);
+        platform_client.float_data_count++;
+    }
 }
 
 void eregec_set_string_data(const char *name, const char  *value)
 {
+    int string_data_count = platform_client.string_data_count;
+    int index = string_data_count;
 
+    if (index >= MAX_DATA_COUNT)
+        return;
+
+    for (int i = 0; i < string_data_count; i++)
+        if (!strcmp(name, platform_client.string_data_name[i])) {
+            index = i;
+            break;
+        }
+
+    strncpy(platform_client.string_data_value[index], value, MAX_NAME_SIZE);
+    if (index == string_data_count) {
+        strcpy(platform_client.string_data_name[index], name);
+        platform_client.string_data_count++;
+    }
 }
 
 bool eregec_upload_data(void)
 {
-    return false;
+    char recv_buf[MAX_SOCKET_BUF_SIZE], *buf = recv_buf;
+
+    int int_data_count = platform_client.int_data_count;
+    int float_data_count = platform_client.float_data_count;
+    int string_data_count = platform_client.string_data_count;
+
+    char (*int_data_name)[MAX_NAME_SIZE] = platform_client.int_data_name;
+    char (*float_data_name)[MAX_NAME_SIZE] = platform_client.float_data_name;
+    char (*string_data_name)[MAX_NAME_SIZE] = platform_client.string_data_name;
+
+    int *int_data_value = platform_client.int_data_value;
+    float *float_data_value = platform_client.float_data_value;
+    char (*string_data_value)[MAX_NAME_SIZE] = platform_client.string_data_value;
+
+    buf += sprintf(buf, "Platform Data\n");
+    for (int i = 0; i < int_data_count; i++) 
+        buf += sprintf(buf, "%s:int:%d\n", int_data_name[i], int_data_value[i]);
+    for (int i = 0; i < float_data_count; i++) 
+        buf += sprintf(buf, "%s:float:%g\n", float_data_name[i], float_data_value[i]);
+    for (int i = 0; i < string_data_count; i++) 
+        buf += sprintf(buf, "%s:string:%s\n", string_data_name[i], string_data_value[i]);
+    buf += sprintf(buf, "End\n");
+    return send_string(DATA_SOCKET, recv_buf);
 }
