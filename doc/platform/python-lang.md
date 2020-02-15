@@ -24,7 +24,7 @@ sudo apt install python3-opencv
 * 创建PlatformClient对象：`platform_client = PlatformClient(平台ID, 平台名, 服务器IP, 服务器端口)`
 * 设置命令回调函数：`set_command_callback(回调函数)`
 * 连接服务器：`platform_client.connect()`
-* 设置当前温度：`platform_client.set_temperature(当前温度)`
+* 设置浮点数据：`platform_client.set_float_data(数据名称, 数据值)`
 * 上传数据：`platform_cilent.upload_data()`
 * 断开服务器：`platform_cilent.disconnect()`
 
@@ -51,7 +51,7 @@ sudo apt install python3-opencv
     * 连接服务器，此函数会同时连接所有socket
     * 如果服务器已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果任意一条socket连接成功，返回True，否则返回False（可用get_error_message()获取失败原因）
+    * 如果任意一条socket连接成功，返回True，否则返回False
 
 #### connect_command_socket()
 * 参数：
@@ -60,7 +60,7 @@ sudo apt install python3-opencv
     * 与服务器建立Command Socket连接
     * 如果Command Socket已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果连接成功，返回True，否则返回False（可用get_error_message()获取失败原因）
+    * 如果连接成功，返回True，否则返回False
 
 #### connect_data_socket()
 * 参数：
@@ -69,7 +69,7 @@ sudo apt install python3-opencv
     * 与服务器建立Data Socket连接
     * 如果Data Socket已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果连接成功，返回True，否则返回False（可用get_error_message()获取失败原因）
+    * 如果连接成功，返回True，否则返回False
 
 #### disconnect()
 * 参数：
@@ -94,16 +94,6 @@ sudo apt install python3-opencv
     * 断开与服务器之间的Data Socket连接
 * 返回：
     * None
-
-#### get_error_message()
-* 参数：
-    * 无
-* 功能：
-    * 获取出错信息
-    * connet系列方法返回False时，可通过此方法获取错误信息
-    * upload_data方法返回False时，可通过此方法获取错误信息
-* 返回：
-    * 返回错误信息字符串
 
 #### is_command_socket_connected()
 * 参数：

@@ -15,14 +15,14 @@
 ### 快速开始
 将eregec.c eregec.h添加到你的项目里  
    
-在链接代码时，需要链接库: 
+在linux下，编译链接代码时，需要链接库: -lpthread
 
 #### 使用方法
 * 包含头文件：`#include "eregec.h"`
 * 初始化客户端：`eregec_init(平台ID, 平台名, 服务器IP, 服务器端口)`
 * 设置命令回调函数：`eregec_set_command_callback(回调函数)`
 * 连接服务器：`eregec_connect()`
-* 设置当前温度：`eregec_set_temperature(当前温度)`
+* 设置浮点数据：`platform_client.set_float_data(数据名称, 数据值)`
 * 上传数据：`eregec_upload_data()`
 * 断开服务器：`eregec_disconnect()`
 
@@ -47,7 +47,7 @@
     * 连接服务器，此函数会同时连接所有socket
     * 如果服务器已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果任意一条socket连接成功，返回true，否则返回false（可用eregec_get_error_message()获取失败原因）
+    * 如果任意一条socket连接成功，返回true，否则返回false
 
 #### bool eregec_connect_command_socket(void)
 * 参数：
@@ -56,7 +56,7 @@
     * 与服务器建立Command Socket连接
     * 如果Command Socket已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果连接成功，返回true，否则返回false（可用eregec_get_error_message()获取失败原因）
+    * 如果连接成功，返回true，否则返回false
 
 #### bool eregec_connect_data_socket(void)
 * 参数：
@@ -65,7 +65,7 @@
     * 与服务器建立Data Socket连接
     * 如果Data Socket已经连接，会断开之前的连接，然后重新连接
 * 返回：
-    * 如果连接成功，返回true，否则返回false（可用eregec_get_error_message()获取失败原因）
+    * 如果连接成功，返回true，否则返回false
 
 #### void eregec_disconnect(void)
 * 参数：
@@ -90,16 +90,6 @@
     * 断开与服务器之间的Data Socket连接
 * 返回：
     * 无
-
-#### const char \*eregec_get_error_message(void)
-* 参数：
-    * 无
-* 功能：
-    * 获取出错信息
-    * eregec_connet系列函数返回false时，可通过此函数获取错误信息
-    * eregec_upload_data函数返回false时，可通过此函数获取错误信息
-* 返回：
-    * 返回错误信息字符串
 
 #### bool eregec_is_command_socket_connected(void)
 * 参数：
