@@ -76,7 +76,8 @@ public class HttpClient {
             errorMessage = e.toString();
         } finally {
             closeStream();
-            connection.disconnect();
+            if (connection != null)
+                connection.disconnect();
         }
         return result;
     }

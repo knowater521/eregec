@@ -5,8 +5,7 @@
  *   输入cmd xxx： 将xxx当做命令发给硬件平台让硬件平台执行
  *   输入exit： 用户登出并退出
  */
-
-import com.mxb360.eregec.Eregec;     // 导入Eregec
+package com.mxb360.eregec;
 import java.util.Scanner;
 
 public class Main {
@@ -22,7 +21,7 @@ public class Main {
          * Eregec对象用于完成客户端和服务器之间的通信
          * 创建Eregec需要指定访问服务器的域名
          */
-        Eregec eregec = new Eregec("mxb360.top");
+        Eregec eregec = new Eregec("39.108.3.243:51433");
 
         // 从输入获取用户名和密码
         String name = getInputString("用户名: ");
@@ -43,31 +42,40 @@ public class Main {
 
         boolean isRunning = true;
         while (isRunning) {
-            switch (getInputString(">>> ").trim()) {
-            case "print":
-                /* 更新平台数据
-                 * updatePlatformData方法用于重服务器获取平台数据，如果失败，返回false
-                 * getFloatData获取float类型的数据
-                 */
-                if (eregec.updatePlatformData()) {
-                    System.out.println("平台数据：");
-                    System.out.println("    温度：" + eregec.getFloatData("temperature"))
-                } else 
-                    System.out.println("错误：平台数据获取失败：" + eregec.getErrorMessage());
-                break;
-            case "exit":
-                isRunning = false;
-                break;
-            default:
-                System.out.println("错误：未知操作！");
-                break;
+            String[] commands = getInputString(">>> ").trim().split(" ");
+            switch (commands[0]) {
+                case "print":
+                    /* 更新平台数据
+                     * updatePlatformData方法用于重服务器获取平台数据，如果失败，返回false
+                     * getFloatData获取float类型的数据
+                     */
+                    if (eregec.downloadPlatformData()) {
+                        System.out.println("平台数据：");
+                        System.out.println("    温度：" + eregec.getFloatPlatformData("temperature"));
+                        System.out.println("    湿度：" + eregec.getFloatPlatformData("humidity"));
+                    } else
+                        System.out.println("错误：平台数据获取失败：" + eregec.getErrorMessage());
+                    break;
+                case "cmd":
+                    if (commands.length > 1) {
+                        /* 发送命令到硬件平台
+                         * sendCommand(命令字符串)
+                         */
+                        if (!eregec.sendCommand(commands[1]))
+                            System.out.println("错误：命令执行失败：" + eregec.getErrorMessage());
+                    } else
+                        System.out.println("错误：cmd: 命令缺少参数");
+                    break;
+                case "exit":
+                    isRunning = false;
+                    break;
+                default:
+                    System.out.println("错误：" + commands[0] + ": 未知操作");
+                    break;
             }
         }
 
-        /* 退出系统 
-         * logout用于退出系统，失败返回false
-         */
-        if (eregec.logout())
-            System.out.println("错误：登出系统失败：" + eregec.getErrorMessage());
+        /* 退出系统 */
+        eregec.logout();
     }
 }
