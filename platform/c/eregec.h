@@ -10,7 +10,7 @@ extern "C" {
 #define COMMAND_FAILED(s)  s
 #define COMMAND_OK(s)      "OK"
 
-void eregec_init(const char *id, const char *name, const char *host, int port);
+void eregec_init(const char *name, const char *password, const char *host, int port);
 
 bool eregec_connect(void);
 
@@ -30,7 +30,7 @@ bool eregec_is_command_socket_connected(void);
 
 bool eregec_is_connected(void);
 
-void eregec_set_cmd_callback(const char *(*callback_func)(const char *cmd));
+void eregec_set_command_callback(const char *(*callback_func)(const char *cmd));
 
 void eregec_set_int_data(const char *name, int value);
 

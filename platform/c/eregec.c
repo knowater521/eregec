@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <errno.h>
+#include <signal.h>
 
 #ifdef __linux
 
@@ -18,6 +19,12 @@
 
 typedef int socket_t;
 static pthread_t _pid;
+
+#define M_COLOR  "\033[32m"
+#define E_COLOR  "\033[31m"
+#define W_COLOR  "\033[35m"
+#define I_COLOR  "\033[33m"
+#define R_COLOR  "\033[0m"
 
 #define socket_init()       ((void)0)  
 #define closesocket(fd)     close(fd)
@@ -34,6 +41,11 @@ static pthread_t _pid;
 #ifdef _MSC_VER 
 #pragma comment(lib, "Ws2_32.lib")
 #endif
+
+/* 不对windows通过颜色输出支持 */
+#define E_COLOR  ""
+#define W_COLOR  ""
+#define R_COLOR  ""
 
 typedef SOCKET socket_t;
 
@@ -64,10 +76,12 @@ static bool eregec_socket_init()
 
 #include "eregec.h"
 
-#define eregec_perror(...)    printf("PlatformClient: Error: " __VA_ARGS__)
-#define eregec_pwarning(...)  printf("PlatformClient: Warning: " __VA_ARGS__)
-#define eregec_pinfo(...)     printf("PlatformClient: Info: " __VA_ARGS__)
+#define eregec_perror(...)    printf(M_COLOR"PlatformClient: "E_COLOR"Error: "R_COLOR __VA_ARGS__)
+#define eregec_pwarning(...)  printf(M_COLOR"PlatformClient: "W_COLOR"Warning: "R_COLOR __VA_ARGS__)
+#define eregec_pinfo(...)     printf(M_COLOR"PlatformClient: "I_COLOR"Info: "R_COLOR __VA_ARGS__)
 #define BAD_SOCKET            (socket_t)0
+
+#define is_connected(fd)      ((fd) && (fd) != BAD_SOCKET)
 
 #define MAX_ID_SIZE           127
 #define MAX_NAME_SIZE         127
@@ -82,8 +96,8 @@ static const char *SOCKET_NAME[] = {"Data Socket", "Command Socket"};
 
 struct {
     bool is_init;
-    char id[MAX_ID_SIZE + 1];
     char name[MAX_NAME_SIZE + 1];
+    char password[MAX_NAME_SIZE + 1];
     char host[MAX_HOST_SIZE + 1];
     int port;
 
@@ -103,10 +117,7 @@ struct {
     int  string_data_count;
 
     const char *(*callback_func)(const char *);
-} platform_client = {
-    .data_socket = BAD_SOCKET,
-    .command_socket = BAD_SOCKET,
-};
+} platform_client;
 
 /*
 * head:
@@ -123,7 +134,7 @@ static char *create_head(char *buf, int socket_type)
     strcat(buf, "\n");
     strcat(buf, platform_client.name);
     strcat(buf, "\n");
-    strcat(buf, platform_client.id);
+    strcat(buf, platform_client.password);
     strcat(buf, "\nEnd");
     return buf;
 }
@@ -141,7 +152,7 @@ static bool send_string(int socket_type, const char *string)
         default: return false;
     }
 
-    if (*pfd == BAD_SOCKET) {
+    if (!is_connected(*pfd)) {
         eregec_perror("%s: send(): socket not connected(bad socket)\n", SOCKET_NAME[socket_type]);
         return false;
     }
@@ -165,7 +176,7 @@ static bool recv_string(int socket_type, char *string)
         default: return false;
     }
 
-    if (*pfd == BAD_SOCKET) {
+    if (!is_connected(*pfd)) {
         eregec_perror("%s: recv(): socket not connected(bad socket)\n", SOCKET_NAME[socket_type]);
         return false;
     }
@@ -234,12 +245,12 @@ static socket_t connect_socket(int socket_type)
     return fd;
 }
 
-void get_cmd(void)
+static void get_cmd(void)
 {
     char cmd_buf[MAX_SOCKET_BUF_SIZE + 1];
 
     eregec_pinfo("get_cmd: start get cmd thread ...\n");
-    while (platform_client.command_socket != BAD_SOCKET) {
+    while (is_connected(platform_client.command_socket)) {
         if (!recv_string(COMMAND_SOCKET, cmd_buf))
             continue;
         eregec_pinfo("get_cmd: client send cammand \"%s\"\n", cmd_buf);
@@ -251,21 +262,35 @@ void get_cmd(void)
         send_string(COMMAND_SOCKET, platform_client.callback_func(cmd_buf));
     }
 
-    eregec_pinfo("get_cmd: get cmd thread stoped\n");
+    eregec_pinfo("get_cmd: get cmd thread stoped.\n");
 }
 
-void eregec_init(const char *id, const char *name, const char *host, int port)
+void eregec_init(const char *name, const char *password, const char *host, int port)
 {
-    assert(id != NULL);
     assert(name != NULL);
+    assert(password != NULL);
     assert(host != NULL);
     assert(port > 0 && port < 65536);
 
-    strncpy(platform_client.id, id, MAX_ID_SIZE);
     strncpy(platform_client.name, name, MAX_NAME_SIZE);
+    strncpy(platform_client.password, password, MAX_NAME_SIZE);
     strncpy(platform_client.host, host, MAX_HOST_SIZE);
     platform_client.port = port;
     platform_client.is_init = true;
+
+    if (is_connected(platform_client.data_socket)) {
+        closesocket(platform_client.data_socket);
+        eregec_pwarning("Data Socket was connected before init. close it.");
+    }
+    if (is_connected(platform_client.command_socket)) {
+        closesocket(platform_client.command_socket);
+        eregec_pwarning("Command Socket was connected before init. close it.");
+    }
+
+    platform_client.command_socket = BAD_SOCKET;
+    platform_client.data_socket = BAD_SOCKET;
+
+    signal(SIGPIPE, SIG_IGN);
 }
 
 bool eregec_connect(void)
@@ -279,13 +304,13 @@ bool eregec_connect_command_socket(void)
 {
     platform_client.command_socket = connect_socket(COMMAND_SOCKET);
     start_thread(get_cmd);
-    return platform_client.command_socket != BAD_SOCKET;
+    return is_connected(platform_client.command_socket);
 }
 
 bool eregec_connect_data_socket(void)
 {
     platform_client.data_socket = connect_socket(DATA_SOCKET);
-    return platform_client.data_socket != BAD_SOCKET;
+    return is_connected(platform_client.data_socket);
 }
 
 void eregec_disconnect(void)
@@ -296,7 +321,7 @@ void eregec_disconnect(void)
 
 void eregec_disconnect_command_socket(void)
 {
-    if (platform_client.command_socket != BAD_SOCKET) {
+    if (is_connected(platform_client.command_socket)) {
         closesocket(platform_client.command_socket);
         platform_client.command_socket = BAD_SOCKET;
         eregec_pinfo("Command Socket: close()\n");
@@ -305,7 +330,7 @@ void eregec_disconnect_command_socket(void)
 
 void eregec_disconnect_data_socket(void)
 {
-    if (platform_client.data_socket != BAD_SOCKET) {
+    if (is_connected(platform_client.data_socket)) {
         closesocket(platform_client.data_socket);
         eregec_pinfo("Data Socket: close()\n");
         platform_client.data_socket = BAD_SOCKET;
@@ -314,12 +339,12 @@ void eregec_disconnect_data_socket(void)
 
 bool eregec_is_command_socket_connected(void)
 {
-    return platform_client.command_socket != BAD_SOCKET;
+    return is_connected(platform_client.command_socket);
 }
 
 bool eregec_is_data_socket_connected(void)
 {
-    return platform_client.data_socket != BAD_SOCKET;
+    return is_connected(platform_client.data_socket);
 }
 
 bool eregec_is_connected(void)
@@ -327,7 +352,7 @@ bool eregec_is_connected(void)
     return eregec_is_command_socket_connected() || eregec_is_data_socket_connected();
 }
 
-void eregec_set_cmd_callback(const char *(*callback_func)(const char *cmd))
+void eregec_set_command_callback(const char *(*callback_func)(const char *cmd))
 {
     platform_client.callback_func = callback_func;
 }
@@ -410,6 +435,11 @@ bool eregec_upload_data(void)
     int *int_data_value = platform_client.int_data_value;
     float *float_data_value = platform_client.float_data_value;
     char (*string_data_value)[MAX_NAME_SIZE] = platform_client.string_data_value;
+
+    if (!is_connected(platform_client.data_socket)) {
+        eregec_pwarning("eregec_upload_data(): data not upload: Data Socket not connected!\n");
+        return false;
+    }
 
     buf += sprintf(buf, "Platform Data\n");
     for (int i = 0; i < int_data_count; i++) 
