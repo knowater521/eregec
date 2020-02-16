@@ -1,6 +1,7 @@
 # Summary
 
-* [介绍](README.md)
+* [首页](README.md)
+* [介绍](introduce.md)
 * [服务器搭建](server/readme.md)
     * [软件安装](server/installation.md)
     * [运行服务器](server/run-server.md)

@@ -5,19 +5,19 @@
 提供本代码的目的是方便用户使用Java语言快速的开发本服务器的客户端，如Android App或者基于Java的PC端。
 
 ### 代码
-此Java客户端API代码位于[源码](https://github.com/mxb360/eregec)树的[client/java/api/](https://github.com/mxb360/eregec/blob/master/client/java/api)目录里。  
-* [src/](https://github.com/mxb360/eregec/blob/master/client/java/api/src)便是代码实现；  
-* [lib/](https://github.com/mxb360/eregec/blob/master/client/java/api/lib)里是用到的第三方jar包：本项目使用了org.json包来解析JSON数据。  
+此Java客户端API代码位于[源码](https://github.com/mxb360/eregec)树的[client/java/](https://github.com/mxb360/eregec/blob/master/client/java)目录里。  
+* [src/](https://github.com/mxb360/eregec/blob/master/client/java/src)便是代码实现；  
+* [lib/](https://github.com/mxb360/eregec/blob/master/client/java/lib)里是用到的第三方jar包：本项目使用了org.json包来解析JSON数据。  
 
 
 ### 快速开始
 将src里的源码和lib里的jar包添加到你的Java项目里
 
 #### 使用方法
-* 导包：`import com.mxb360.eregec;`
+* 导包：`import com.mxb360.eregec.Eregec;`
 * 创建Eregec实例：`Eregec eregec = new Eregec(服务器域名 或者 IP:端口);`
 * 登录：`eregec.login(用户名, 密码)`
-* 从服务器更新平台数据：`eregec.updatePlatformData()`
+* 从服务器更新平台数据：`eregec.downloadPlatformData()`
 * 取出需要的数据，如温度：`float temperature = eregec.getFloatData("temperature")`
 * 向硬件平台发送命令：`eregec.sendCmd(命令字符串)`
 * 用户登出：`eregec.logout()`
@@ -35,8 +35,9 @@
  *   输入cmd xxx： 将xxx当做命令发给硬件平台让硬件平台执行
  *   输入exit： 用户登出并退出
  */
-
-import com.mxb360.eregec.Eregec;     // 导入Eregec
+import com.mxb360.eregec.Eregec;              // 导入Eregec
+import com.mxb360.eregec.UserInformation;     // 导入UserInformation
+import com.mxb360.eregec.PlatformInformation; // 导入PlatformInformation
 import java.util.Scanner;
 
 public class Main {
@@ -73,32 +74,41 @@ public class Main {
 
         boolean isRunning = true;
         while (isRunning) {
-            switch (getInputString(">>> ").trim()) {
+            String[] commands = getInputString(">>> ").trim().split(" ");
+            switch (commands[0]) {
             case "print":
                 /* 更新平台数据
-                 * updatePlatformData方法用于重服务器获取平台数据，如果失败，返回false
-                 * getFloatData获取float类型的数据
+                 * downloadPlatformData方法用于重服务器获取平台数据，如果失败，返回false
+                 * getFloatPlatformData方法获取float类型的数据
                  */
-                if (eregec.updatePlatformData()) {
+                if (eregec.downloadPlatformData()) {
                     System.out.println("平台数据：");
-                    System.out.println("    温度：" + eregec.getFloatData("temperature"))
+                    System.out.println("    温度：" + eregec.getFloatPlatformData("temperature"));
+                    System.out.println("    湿度：" + eregec.getFloatPlatformData("humidity"));
                 } else 
                     System.out.println("错误：平台数据获取失败：" + eregec.getErrorMessage());
+                break;
+            case "cmd":
+                if (commands.length > 1) {
+                    /* 发送命令到硬件平台
+                     * sendCommand(命令字符串)
+                     */
+                    if (!eregec.sendCommand(commands[1]))
+                        System.out.println("错误：命令执行失败：" + eregec.getErrorMessage());
+                } else
+                    System.out.println("错误：cmd: 命令缺少参数");
                 break;
             case "exit":
                 isRunning = false;
                 break;
             default:
-                System.out.println("错误：未知操作！");
+                System.out.println("错误：" + commands[0] + ": 未知操作");
                 break;
             }
         }
 
-        /* 退出系统 
-         * logout用于退出系统，失败返回false
-         */
-        if (eregec.logout())
-            System.out.println("错误：登出系统失败：" + eregec.getErrorMessage());
+        /* 退出系统 */
+        eregec.logout();
     }
 }
 ```
@@ -168,21 +178,21 @@ public class Main {
 * 返回：
     * 返回相应数据，失败回null（可用getErrorMessage()获取失败原因字符串描述）
 
-#### String getPlatformName() 
+#### PlatformInformation getPlatformInformation() 
 * 参数：
 *   无
 * 功能：
-    * 获取平台名称
+    * 获取平台信息
 * 返回：
-    * 返回平台名称，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+    * 返回平台信息（可用getErrorMessage()获取失败原因字符串描述）
 
-#### String getPlatformID() 
+#### UserInformation getUserInformation() 
 * 参数：
 *   无
 * 功能：
-    * 获取平台ID
+    * 获取用户信息
 * 返回：
-    * 返回平台ID，失败返回null（可用getErrorMessage()获取失败原因字符串描述）
+    * 返回用户信息（可用getErrorMessage()获取失败原因字符串描述）
 
 #### boolean isLogin()
 * 参数：无
@@ -191,10 +201,18 @@ public class Main {
 * 返回：
     * 如果处于登录状态，返回true，否则返回false
 
-#### bool sendCommand(String command)
+#### boolean sendCommand(String command)
 * 参数：
     * command: 命令字符串
 * 功能：
     * 向平台发送指定命令
+* 返回：
+    * 成功返回true，失败返回false（可用getErrorMessage()获取失败原因字符串描述）
+
+#### boolean downloadPlatformData()
+* 参数：
+    * 无
+* 功能：
+    * 下载更新平台数据
 * 返回：
     * 成功返回true，失败返回false（可用getErrorMessage()获取失败原因字符串描述）

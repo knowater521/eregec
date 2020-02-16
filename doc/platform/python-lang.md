@@ -5,7 +5,7 @@
 
 ### 代码
 
-此Python3硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[platform/python](https://github.com/mxb360/eregec/blob/master/platform/python)目录里的[eregec.py](https://github.com/mxb360/eregec/blob/master/platform/python/eregec.py)里。
+此Python3硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[platform/python](https://github.com/mxb360/eregec/tree/master/platform/python)目录里的[eregec.py](https://github.com/mxb360/eregec/tree/master/platform/python/eregec.py)里。
 
 ### 环境搭建
 
@@ -21,26 +21,29 @@ sudo apt install python3-opencv
 
 #### 使用方法
 * 导入eregec.py里的PlatformClient类：`form eregec import PlatformClient`
-* 创建PlatformClient对象：`platform_client = PlatformClient(平台ID, 平台名, 服务器IP, 服务器端口)`
+* 创建PlatformClient对象：`platform_client = PlatformClient(服务器IP, 服务器端口)`
 * 设置命令回调函数：`set_command_callback(回调函数)`
-* 连接服务器：`platform_client.connect()`
+* 连接服务器：`platform_client.connect(用户名, 密码)`
 * 设置浮点数据：`platform_client.set_float_data(数据名称, 数据值)`
 * 上传数据：`platform_cilent.upload_data()`
 * 断开服务器：`platform_cilent.disconnect()`
+
+#### 简单例子
+（与C语言接口简单例子非常相似，暂时略）
 
 
 ### 所有API
 
 类PlatformClient可用的方法：
 
-#### PlatformClient(id, name, host, port)
+#### PlatformClient(name, password, host, port)
 * 参数：
-    * id: str类型，平台ID
-    * name: str类型，平台名字，如'RaspberryPi'，可任意设定
+    * name: str类型，用户名
+    * password: str类型，用户密码
     * host: str类型，服务器IP
     * port: int类型，服务器端口
 * 功能：
-    * 构造方法，创建一个PlatformClient示例，初始化平台客户端
+    * 构造方法，创建一个PlatformClient实例，初始化平台客户端
 * 返回：
     * PlatformClient实例
 

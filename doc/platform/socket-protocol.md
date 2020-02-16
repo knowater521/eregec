@@ -26,16 +26,16 @@
 请求头组成： 
 * 第一行：标题，是一个固定字符串："Electronic Ecological Estanciero Platform Socket"  
 * 第二行：Socket类型，取值为 "Data Socket"，"Cammand Socket"  
-* 第三行：平台名称，如："RaspberryPi", 或者 "Windows 7", "Ubuntu 16.04"等  
-* 第四行：设备ID号（ID号用于关联硬件平台和用户，在用户配置里设置）  
+* 第三行：用户名
+* 第四行：用户密码
 * 第五行：结束标记，固定为"End"  
   
 一个完整的请求头的例子：
 ```
 Electronic Ecological Estanciero Platform Socket
 Data Socket
-RaspberryPi
-eregecuserplatform
+eregec
+123456
 End
 ```
 

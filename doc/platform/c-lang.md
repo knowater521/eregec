@@ -6,33 +6,108 @@
 
 ### 代码
 
-此C语言硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[eregec/c](https://github.com/mxb360/eregec/blob/master/eregec/c)目录里。  
+此C语言硬件平台API代码位于[源码](https://github.com/mxb360/eregec)树的[platform/c](https://github.com/mxb360/eregec/tree/master/platform/c)目录里。  
 
 
-要成功使用本代码，需要安装opencv库：
+要成功使用本代码，需要安装以下库：
 
 
 ### 快速开始
 将eregec.c eregec.h添加到你的项目里  
    
-在linux下，编译链接代码时，需要链接库: -lpthread
+在linux下编译链接代码时，需要链接库: -lpthread  
+在Windows下使用gcc编译链接代码时，需要链接库: -lWs2_32
 
 #### 使用方法
 * 包含头文件：`#include "eregec.h"`
-* 初始化客户端：`eregec_init(平台ID, 平台名, 服务器IP, 服务器端口)`
+* 初始化客户端：`eregec_init(用户名, 密码, 服务器IP, 服务器端口)`
 * 设置命令回调函数：`eregec_set_command_callback(回调函数)`
 * 连接服务器：`eregec_connect()`
-* 设置浮点数据：`platform_client.set_float_data(数据名称, 数据值)`
+* 设置浮点数据：`eregec_set_float_data(数据名称, 数据值)`
 * 上传数据：`eregec_upload_data()`
 * 断开服务器：`eregec_disconnect()`
 
+#### 简单例子
+这里提供Linux版本的示例。  
+（对于Windows，把unistd.h换成Windows.h，sleep(1)改成Sleep(1000)即可）
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+/* 你需要包含此头文件来使用提供的API接口 */
+#include "eregec.h"
+
+/* 自定义的命令回调函数(通过eregec_set_command_callback设置)
+ * 当收到用户发送的命令后，此函数会被执行，参数即为当前命令
+ * 这里演示的是用户发送"open-led"便开灯，"close-led"关灯，其他为无效命令
+ * 这里对开关灯的演示就是打印出“开灯！”, “关灯！”
+ * 如果命令执行成功，请返回COMMAND_OK(描述信息)，失败请返回COMMAND_FAILED(描述信息)
+ */
+const char *resolve_command(const char *cmd)
+{
+    if (!strcmp(cmd, "open-led")) {
+        printf("开灯！\n");
+    } else if (!strcmp(cmd, "close-led")) {
+        printf("关灯！\n");
+    } else {
+        printf("%s: 不能识别的命令\n", cmd);
+        return COMMAND_FAILED("unkown command!");
+    }
+    return COMMAND_OK("succeed!");
+}
+
+int main(void)
+{
+    /* 平台客户端的初始化，在使用提供的函数之前，必须初始化平台客户端
+     * eregec_init(用户名, 密码, 服务器IP, 服务器端口)
+     */
+    eregec_init("eregec", "123456", "39.108.3.243", 51435);
+
+    /* 连接服务器
+     * 使用此函数时，终端会输出连接信息
+     * 如果连接成功，返回true，否则返回false，终端会输出连接信息
+     */
+    if (!eregec_connect()) {
+        printf("Error: Connect Server Failed!\n");
+        return 1;
+    }
+
+    /* 指定命令回调函数是resolve_command
+     * 如果不调用此函数设置命令回调函数，命令将会被忽略。
+     */
+    eregec_set_command_callback(resolve_command);
+
+    /*eregec_is_connected()判断是否处于连接中  */
+    while (eregec_is_connected()) {
+        /* 设置平台数据，这里采用随机数模拟真实值
+         * float类型的数据采用函数eregec_set_float_data设置
+         * eregec_set_float_data(数据名称, 数据值)
+         */ 
+        eregec_set_float_data("temperature", 37 + (rand() % 10) / 10.0);
+        eregec_set_float_data("humidity", 18 + (rand() % 100)/ 100.0);
+        
+        /* 将设置的数据上传服务器 */
+        eregec_upload_data();
+
+        /* 延时一秒，这里每隔一秒更新一次数据 */
+        sleep(1);
+    }
+
+    /* 断开与服务器的所有连接 */
+    eregec_disconnect();
+	return 0;
+}
+```
 
 ### 所有API
 
-#### void eregec_init(const char \*id, const char \*name, const char \*host, int port)
+#### void eregec_init(const char \*name, const char \*password, const char \*host, int port)
 * 参数：
-    * id: 平台ID
-    * name: 平台名字，如"RaspberryPi"，可任意设定
+    * name: 用户名
+    * password: 用户密码
     * host: 服务器IP
     * port: 服务器端口
 * 功能：
@@ -95,7 +170,15 @@
 * 参数：
     * 无
 * 功能：
-    * 判断当前的Command SOcket是否处于连接状态
+    * 判断当前的Command Socket是否处于连接状态
+* 返回：
+    * true表示已连接，false表示未连接
+
+#### bool eregec_is_data_socket_connected(void)
+* 参数：
+    * 无
+* 功能：
+    * 判断当前的Data Socket是否处于连接状态
 * 返回：
     * true表示已连接，false表示未连接
 
@@ -107,7 +190,7 @@
 * 返回：
     * true表示有，false表示没有
 
-#### void eregec_set_cmd_callback(const char \*(\*callback_func)(const char \*cmd))
+#### void eregec_set_command_callback(const char \*(\*callback_func)(const char \*cmd))
 * 参数：
     * callback_func：
         * 参数：
@@ -116,7 +199,7 @@
             * 执行命令
             * 此函数执行时间不能过长，因为服务器等到此函数返回时才会应答客户端
         * 返回：
-            * 如果执行成功返回"OK"，否则返回错误字符串描述。
+            * 如果执行成功返回COMMAND_OK(字符串描述)，否则返回COMMAND_FAILED(错误字符串描述)。
 * 功能：
     * callback_func执行时间不能过长，因为服务器等到callback_func返回时才会应答客户端
     * 如果不调用此函数，或者callback_func被设为NULL，命令将会被忽略，并告知服务器命令执行失败

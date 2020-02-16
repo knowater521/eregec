@@ -105,7 +105,7 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 ##### 3. 平台数据请求
 平台数据请求| 　　 
 -----------|-----------------------------------------------------------
-  请求     | [/eregec/api/platform-data](http://mxb360.top/eregec/api/platform)  
+  请求     | [/eregec/api/platform-data](http://mxb360.top/eregec/api/platform-data)  
   功能     | 返回用户平台的实时数据
   参数     | `userid        ` 用户ID(必需参数)
   返回     | 数据名称：数据值...
@@ -125,18 +125,38 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 ##### 4. 平台信息获取
 平台信息获取| 　　 
 -----------|-----------------------------------------------------------
-  请求     | [/eregec/api/platform-info](http://mxb360.top/eregec/api/platform)  
+  请求     | [/eregec/api/platform-info](http://mxb360.top/eregec/api/platform-info)  
   功能     | 返回用户平台的实时数据
   参数     | `userid  ` 用户ID(必需参数)
-  返回     | `"name"  ` 平台名称
-  返回     | `"id"  `   平台ID
+  返回     | 平台信息数据名：平台信息数据值...
 操作成功后完整的返回例子：
 ```json
 {
     "data":
     {
-        "name": "RaspberryPi",
-        "id": "eregecuserplatform"
+        "name": "Eregec Test Virtual Hardware"
+    },
+    "message": "OK",
+    "code": 0
+}
+```
+
+##### 5. 用户信息获取
+用户信息获取| 　　 
+-----------|-----------------------------------------------------------
+  请求     | [/eregec/api/user-info](http://mxb360.top/eregec/api/user-info)  
+  功能     | 返回用户平台的实时数据
+  参数     | `userid  ` 用户ID(必需参数)
+  返回     | 用户信息数据名：用户信息数据值...
+操作成功后完整的返回例子：
+```json
+{
+    "data":
+    {
+        "password": "123456",
+        "name": "Eregec Test User",
+        "tel": "1388888888",
+        "sex": "男"
     },
     "message": "OK",
     "code": 0

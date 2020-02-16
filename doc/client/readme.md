@@ -1,5 +1,9 @@
 # 客户端接口
 
-* [HTTP接口(通信协议)](http-protocol.html)
-* [Java语言接口](java-lang.html)
-* [Python语言接口](python-lang.html)
+服务器需要与用户客户端进行数据交流。所以，制定了用户客户端与服务器的通信方式。  
+服务器与客户端采用HTTP协议作为数据传输，数据载体为Json格式
+具体的HTTP协议参见[HTTP接口(通信协议)](http-protocol.html)
+  
+HTTP连接是最本质的连接，但是用户客户端软件的编写者需要了解详细的协议。为了方便用户客户端的开发者，这里提供了与服务器通信的的封装库，这些库封装了HTTP请求细节，使平台客户端只需要关注数据处理相关逻辑即可，与服务器的通信则使用封装库里的API即可简单完成。  
+    
+这里为Java开发者提供了Java库[Java语言接口](java-lang.html)，为Python开发者提供了Python3库[Python语言接口](python-lang.html)
