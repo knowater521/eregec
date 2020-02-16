@@ -2,12 +2,12 @@ import sys, random, time
 from eregec import PlatformClient
 
 def main():
-    id = 'mxb-platform'
-    name = 'Ubuntu 18.04'
+    name = 'eregec'
+    password = '123456'
     host = '39.108.3.243'
     port = 51435
 
-    platform_cilent = PlatformClient(id, name, host, port)
+    platform_cilent = PlatformClient(name, password, host, port)
     if not platform_cilent.connect():
         sys.exit(1)
     print('服务器链接成功！')

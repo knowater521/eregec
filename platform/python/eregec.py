@@ -10,10 +10,10 @@ DataSocket = 0
 CommandSocket = 1
 
 class PlatformClient:
-    def __init__(self, id, name, host, port):
+    def __init__(self, name, password, host, port):
         self.__data_socket = None
         self.__command_socket = None
-        self.__id = id
+        self.__password = password
         self.__name = name
         self.__host = host
         self.__port = port
@@ -33,15 +33,15 @@ class PlatformClient:
     # head:
     # 第一行：标题，是一个固定字符串："Electronic Ecological Estanciero Platform Socket"
     # 第二行：Socket类型，取值为 "Data Socket" 或者 "Cammand Socket"
-    # 第三行：平台名称
-    # 第四行：设备ID号
+    # 第三行：用户名
+    # 第四行：用户密码
     # 第五行：结束标记，固定为"End"
     def __create_head(self, type):
         title = 'Electronic Ecological Estanciero Platform Socket'
         socket_type = ['Data Socket', 'Command Socket']
         end = 'End'
 
-        return title + '\n' + socket_type[type] + '\n' + self.__name + '\n' + self.__id + '\n' + end
+        return title + '\n' + socket_type[type] + '\n' + self.__name + '\n' + self.__password + '\n' + end
 
     # 第一行：标题，固定字符串："Platform Data"
     # 中间任意行：一条平台数据，格式："数据名称:数据类型:数据值"。分割符为英文字符':'； 
