@@ -11,7 +11,7 @@ PlatformServer.run_server()
 # eregec/api/index
 # 测试服务器是否正常工作
 def index(request):
-    return api.json_data("Welcome to visit Electronic Ecological Estanciero Server!")
+    return api.json_data('Welcome to visit Electronic Ecological Estanciero Server!')
 
 
 # eregec/api/login
@@ -25,7 +25,7 @@ def index(request):
 #    登录失败：错误描述的json数据
 def login(request):
     # 请求参数检查
-    res, err = api.get_http_arg(request, ("name", "password"))
+    res, err = api.get_http_arg(request, ('name', 'password'))
     if err:
         return api.json_error(err, api.HttpArgumentError)
 
@@ -38,7 +38,7 @@ def login(request):
     User.add_online_user(user)
 
     # 返回userid
-    return api.json_data({"userid": user.get_id()})
+    return api.json_data({'userid': user.get_id()})
 
 
 # eregec/api/logout
@@ -73,9 +73,9 @@ def platform_data(request):
         return err
 
     # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_id(user.platform)
+    platform = PlatformServer.get_platform_by_name(user.name)
     if not platform:
-        return api.json_error("platform '%s' not connected!" % user.platform, api.PlatformNotConnectError)
+        return api.json_error("platform not connected!", api.PlatformNotConnectError)
 
     # 取出平台数据，并返回相关数据
     data, err = platform.get_data()
@@ -88,9 +88,7 @@ def platform_data(request):
 # POST/GET参数：
 #    userid:  用户id
 # 返回数据：
-# 如果成功，"data"里：
-#     "name": 平台名称
-#     "id":   平台ID
+# 如果成功，"data"里是平台信息
 # 如果失败，返回错误信息
 def platform_info(request):
     # 通过userid获取用户，如果失败，返回错误信息
@@ -98,16 +96,22 @@ def platform_info(request):
     if not user:
         return err
 
-    # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_id(user.platform)
-    if not platform:
-        return api.json_error("platform '%s' not connected!" % user.platform, api.PlatformNotConnectError)
+    return api.json_data(user.platform_info)
 
-    # 取出平台信息，并返回相关数据
-    info, err = platform.get_info()
-    if err:
-        return api.json_error(err, api.DataFaildError)
-    return api.json_data(info)
+# eregec/api/user-info
+# 获取平台数据
+# POST/GET参数：
+#    userid:  用户id
+# 返回数据：
+# 如果成功，"data"里是用户信息
+# 如果失败，返回错误信息
+def user_info(request):
+    # 通过userid获取用户，如果失败，返回错误信息
+    user, _, err = api.get_online_user_by_request(request)
+    if not user:
+        return err
+
+    return api.json_data(user.user_info)
 
 # eregec/api/cmd
 # 获取平台数据
@@ -118,14 +122,14 @@ def platform_info(request):
 def cmd(request):
     # 通过userid获取用户，如果失败，返回错误信息
     
-    user, res, err = api.get_online_user_by_request(request, ("string", ))
+    user, res, err = api.get_online_user_by_request(request, ('string', ))
     if not user:
         return err
 
     # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_id(user.platform)
+    platform = PlatformServer.get_platform_by_name(user.name)
     if not platform:
-        return api.json_error("platform '%s' not connected!" % user.platform, api.PlatformNotConnectError)
+        return api.json_error('platform not connected!', api.PlatformNotConnectError)
 
     # 执行命令
     res = platform.send_cmd(res['string'])
