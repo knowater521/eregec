@@ -3,6 +3,7 @@ from api.user import User
 from api import config
 from api.platform import PlatformServer, Platform
 
+from django.http import HttpResponse, StreamingHttpResponse
 
 # 启动平台服务器，监听平台的socket连接
 PlatformServer.run_server()
@@ -11,7 +12,7 @@ PlatformServer.run_server()
 # eregec/api/index
 # 测试服务器是否正常工作
 def index(request):
-    return api.json_data('Welcome to visit Electronic Ecological Estanciero Server!')
+    return api.json_data({"details": 'Welcome to visit Electronic Ecological Estanciero Server!'})
 
 
 # eregec/api/login
@@ -136,3 +137,52 @@ def cmd(request):
     if res:
         return api.json_error(res, api.CommandFaildError)
     return api.json_data() 
+
+    
+
+# eregec/api/image
+# 获取当前的图片
+# POST/GET参数：
+#    userid: 用户id
+# 如果失败，返回错误信息
+def image(request):
+    # 通过userid获取用户，如果失败，返回错误信息
+    
+    user, _, err = api.get_online_user_by_request(request)
+    if not user:
+        return err
+
+        # 要求平台对象，如果没有找到，返回错误信息
+    platform = PlatformServer.get_platform_by_name(user.name)
+    if not platform:
+        return api.json_error('platform not connected!', api.PlatformNotConnectError)
+
+
+    # 获取图片
+    image = platform.get_image_data()
+    return HttpResponse(image, content_type='image/jpg')
+
+# eregec/api/stream
+# 获取当前的图片
+# POST/GET参数：
+#    userid: 用户id
+# 如果失败，返回错误信息
+def stream(request):
+    # 通过userid获取用户，如果失败，返回错误信息
+    
+    user, _, err = api.get_online_user_by_request(request)
+    if not user:
+        return err
+
+        # 要求平台对象，如果没有找到，返回错误信息
+    platform = PlatformServer.get_platform_by_name(user.name)
+    if not platform:
+        return api.json_error('platform not connected!', api.PlatformNotConnectError)
+
+
+    def image_stream():
+        while True:
+            frame = platform.get_image_data()
+            yield b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+
+    return StreamingHttpResponse(image_stream(), content_type='multipart/x-mixed-replace; boundary=frame')

@@ -3,6 +3,8 @@
 
 import threading
 import socket
+import numpy as np;
+import cv2
 
 from api import config, api
 from api.user import User
@@ -13,6 +15,8 @@ from api.user import User
 # Cammand Socket用于下发命令
 DataSocket = 0
 CommandSocket = 1
+ImageSocket = 2
+SOCKET_NAME = ['Data Socket', 'Command Socket', 'Image Socket']
 
 # 平台服务器
 class PlatformServer:
@@ -62,16 +66,15 @@ class PlatformServer:
     @staticmethod
     def _parse_head(head_string):
         title = 'Electronic Ecological Estanciero Platform Socket'
-        socket_type = ['Data Socket', 'Command Socket']
         end = 'End'
         res = {}
 
         head = head_string.splitlines()
-        if len(head) != 5 or head[0] != title or head[1] not in socket_type or head[4] != end:
+        if len(head) != 5 or head[0] != title or (head[1] not in SOCKET_NAME) or head[4] != end:
             return
-        res['type'] = socket_type.index(head[1])
-        res['name'] = head[2]        
-        res['password'] = head[3]     
+        res['type'] = SOCKET_NAME.index(head[1])
+        res['name'] = head[2]
+        res['password'] = head[3]
 
         return res   
 
@@ -114,10 +117,11 @@ class PlatformServer:
             if not res:
                 client.send(b'Bad head')
                 client.close()
-                api.perror('{} Connection refused! Bad head: "{}"'.format(addr, head_string))
+                #api.perror('{} Connection refused! Bad head: "{}"'.format(addr, head_string.replace('\n', '\\n')))
                 return
             # 将socke发来的身份信息填充到平台对象
             # 并将其添加的在线平台列表里
+            #api.pinfo('{} head: "{}"'.format(addr, head_string.replace('\n', ' || ')))
             user, err = User.get_user(res['name'], res['password'], False)
             if err:
                 client.send(err.encode())
@@ -142,6 +146,13 @@ class PlatformServer:
                     platform.command_socket.close()
                 platform.command_socket = client
                 api.pinfo('{}: Cammand Socke Connected'.format(platform))
+            elif res['type'] == ImageSocket:
+                if platform.image_socket:
+                    api.pwarning("old Image Socket found, close it")
+                    platform.image_socket.close()
+                platform.image_socket = client
+                api.pinfo('{}: Image Socke Connected'.format(platform))
+                platform.watch_image_socket()
 
             if platform not in self._platform:
                 api.pinfo('add new platform object into PlatformServer')
@@ -153,13 +164,16 @@ class PlatformServer:
 # 平台对象，表示一个在线的平台
 class Platform:
     def __init__(self, name, user=None):
-        self.active = False
+        self.data_active = False
+        self.image_active = False
         self.name = name
         self.user = user
         self.data_socket = None
         self.command_socket = None
+        self.image_socket = None
 
         self.data = {}
+        self.img_data = b''
 
     def __str__(self):
         return 'Platform{{name="{}"}}'.format(self.name)
@@ -210,6 +224,9 @@ class Platform:
         if self.data_socket:
             self.data_socket.close()
             self.data_socket = None
+        if self.image_socket:
+            self.image_socket.close()
+            self.image_socket = None
 
     # 解析data_socket接收到的平台上报的数据
     # data_socket一次性上报所有的数据
@@ -251,14 +268,14 @@ class Platform:
         
     # 开启一个线程用于接收平台上报的数据以及向平台发送命令
     def watch_data_socket(self):
-        def _run():
+        def _run_data_socket():
             api.pinfo('{} Data Socket Thread is start running ...'.format(self))
 
-            if self.active:
+            if self.data_active:
                 return
 
-            self.active = True
-            while self.data_socket and self.active:
+            self.data_active = True
+            while self.data_socket and self.data_active:
                 # 接收上报的数据s
                 # 如果接收成功，服务器应答OK
                 # 否则服务器应答错误信息
@@ -274,13 +291,66 @@ class Platform:
                     api.pwarning('{}: Data Socket 已断开: {}'.format(self, e))
                     self.data_socket.close()
                     self.data_socket = None
-                except Exception:
+                except Exception as e:
                     api.perror('{}: Data Socket 已断开: {}'.format(self, e))
                     self.data_socket.close()
                     self.data_socket = None
                     raise
 
-            self.active = False
+            self.data_active = False
             api.pinfo('{} Data Socket Thread stoped'.format(self))
-        # 开线槽执行上述过程
-        threading.Thread(target=_run, daemon=True).start()
+        
+        threading.Thread(target=_run_data_socket, daemon=True).start()
+        
+    def watch_image_socket(self):
+        def _run_image_socket():
+            api.pinfo('{} Image Socket Thread is start running ...'.format(self))
+
+            if self.image_active:
+                return
+
+            self.image_active = True
+            while self.image_socket and self.image_active:
+                try:
+                    data = self.image_socket.recv(16)
+                    if data:
+                        try:
+                            img_len = int(data.decode())
+                            _len = img_len
+                        except:
+                            #api.perror("image size unknown")
+                            continue
+
+                        img_data = b''
+                        buf = b''
+                        while img_len:
+                            buf = self.image_socket.recv(img_len)
+                            if buf:
+                                img_len -= len(buf)
+                                img_data += buf
+                        img = img_data#np.fromstring(img_data, np.uint8)
+                        #img = cv2.imdecode(img, 1)
+                        
+                        self.img_data = img#.tobytes()
+                        
+                        api.pinfo("get image: {}({})".format(len(img), _len))
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    api.pwarning('{}: Image Socket 已断开: {}'.format(self, e))
+                    self.image_socket.close()
+                    self.image_socket = None
+                except OSError as e:
+                    api.perror('{}: OSError: {}'.format(self, e))
+                    pass
+                except Exception as e:
+                    api.perror('{}: Image Socket 已断开: {}'.format(self, e))
+                    self.image_socket.close()
+                    self.image_socket = None
+                    raise
+
+            self.image_active = False
+            api.pinfo('{} Data Socket Thread stoped'.format(self))
+
+        threading.Thread(target=_run_image_socket, daemon=True).start()
+
+    def get_image_data(self):
+        return self.img_data

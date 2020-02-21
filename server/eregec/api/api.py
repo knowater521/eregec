@@ -5,7 +5,7 @@
 from django.http import JsonResponse
 from api.user import User
 
-__M_COLOR = "\033[32m"
+__M_COLOR = "\033[0m"
 __E_COLOR = "\033[31m"
 __W_COLOR = "\033[35m"
 __I_COLOR = "\033[33m"
@@ -45,7 +45,7 @@ def get_http_arg(request, args):
         if res[arg] is None:
             res[arg] = request.GET.get(arg)
             if res[arg] is None:
-                err = 'POST/GET request: argument "%s" is needed' % arg
+                err = "POST/GET request: missing '{}'".format(arg)
                 res = None
                 break
 
@@ -76,19 +76,19 @@ def get_online_user_by_request(request, args=()):
 #   如果出现了错误，"data"为{"details": 错误描述信息}
 #  
 #   所有的json数据都是以上的格式
-def json_data(data={}, message="OK", code=0):
-    return JsonResponse({"data": data, "message": message, "code": code}, json_dumps_params={'ensure_ascii':False})
+def json_data(data={}, message='OK', code=0):
+    return JsonResponse({'data': data, 'message': message, 'code': code}, json_dumps_params={'ensure_ascii': False})
 
 
 # 对json_data做封装，返回一个错误
-def json_error(details="", err=NoError):
-    return json_data({"details": details}, err.name, err.code)
+def json_error(details='', err=NoError):
+    return json_data({'details': details}, err.name, err.code)
 
 def perror(string):
-    print(__M_COLOR + "EregecServer: " + __E_COLOR + "Error: " + string + __R_COLOR)
+    print(__M_COLOR + 'EregecServer: ' + __E_COLOR + 'Error: ' + string + __R_COLOR)
 
 def pwarning(string):
-    print(__M_COLOR + "EregecServer: " + __W_COLOR + "Warning: " + string + __R_COLOR)
+    print(__M_COLOR + 'EregecServer: ' + __W_COLOR + 'Warning: ' + string + __R_COLOR)
 
 def pinfo(string):
-    print(__M_COLOR + "EregecServer: " + __I_COLOR + "Info: " + string + __R_COLOR)
+    print(__M_COLOR + 'EregecServer: ' + __I_COLOR + 'Info: ' + string + __R_COLOR)
