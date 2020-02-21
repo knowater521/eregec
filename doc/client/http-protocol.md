@@ -12,6 +12,7 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 {
     "data":
     {
+        "details": "Welcome to visit Electronic Ecological Estanciero Server!"
     },
     "message": "OK",
     "code": 0
@@ -76,6 +77,7 @@ http请求：[/eregec/api/index](http://mxb360.top/eregec/api/index)，服务器
 {
     "data":
     {
+        "details": "Welcome to visit Electronic Ecological Estanciero Server!"
     },
     "message": "OK",
     "code": 0
