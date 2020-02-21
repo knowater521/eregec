@@ -18,15 +18,23 @@ bool eregec_connect_command_socket(void);
 
 bool eregec_connect_data_socket(void);
 
+bool eregec_connect_image_socket(void);
+
 void eregec_disconnect(void);
 
 void eregec_disconnect_command_socket(void);
 
 void eregec_disconnect_data_socket(void);
 
+void eregec_disconnect_image_socket(void);
+
 const char *eregec_get_error_message(void);
 
 bool eregec_is_command_socket_connected(void);
+
+bool eregec_is_data_socket_connected(void);
+
+bool eregec_is_image_socket_connected(void);
 
 bool eregec_is_connected(void);
 

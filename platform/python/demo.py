@@ -12,6 +12,8 @@ def main():
         sys.exit(1)
     print('服务器链接成功！')
 
+    platform_cilent.start_send_image()
+
     try:
         while platform_cilent.is_connected():
             platform_cilent.set_float_data("temperature", 37 + random.randint(1, 10) / 10)

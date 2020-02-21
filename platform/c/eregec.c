@@ -20,7 +20,7 @@
 typedef int socket_t;
 static pthread_t _pid;
 
-#define M_COLOR  "\033[32m"
+#define M_COLOR  "\033[0m"
 #define E_COLOR  "\033[31m"
 #define W_COLOR  "\033[35m"
 #define I_COLOR  "\033[33m"
@@ -92,7 +92,8 @@ static bool eregec_socket_init()
 
 #define DATA_SOCKET           0
 #define COMMAND_SOCKET        1
-static const char *SOCKET_NAME[] = {"Data Socket", "Command Socket"};
+#define IMAGE_SOCKET          2
+static const char *SOCKET_NAME[] = {"Data Socket", "Command Socket", "Image Socket"};
 
 struct {
     bool is_init;
@@ -103,6 +104,7 @@ struct {
 
     socket_t data_socket;
     socket_t command_socket;
+    socket_t image_socket;
 
     char int_data_name[MAX_DATA_COUNT][MAX_NAME_SIZE];
     int  int_data_value[MAX_DATA_COUNT];
@@ -281,10 +283,17 @@ void eregec_init(const char *name, const char *password, const char *host, int p
     if (is_connected(platform_client.data_socket)) {
         closesocket(platform_client.data_socket);
         eregec_pwarning("Data Socket was connected before init. close it.");
+        platform_client.data_socket = BAD_SOCKET;
     }
     if (is_connected(platform_client.command_socket)) {
         closesocket(platform_client.command_socket);
         eregec_pwarning("Command Socket was connected before init. close it.");
+        platform_client.command_socket = BAD_SOCKET;
+    }
+    if (is_connected(platform_client.image_socket)) {
+        closesocket(platform_client.image_socket);
+        eregec_pwarning("Image Socket was connected before init. close it.");
+        platform_client.image_socket = BAD_SOCKET;
     }
 
     platform_client.command_socket = BAD_SOCKET;
@@ -297,7 +306,8 @@ bool eregec_connect(void)
 {
     bool data_socket_ok = eregec_connect_data_socket();
     bool command_socket_ok = eregec_connect_command_socket();
-    return data_socket_ok || command_socket_ok;
+    bool image_socket_ok = eregec_connect_image_socket();
+    return data_socket_ok || command_socket_ok || image_socket_ok;
 }
 
 bool eregec_connect_command_socket(void)
@@ -313,10 +323,17 @@ bool eregec_connect_data_socket(void)
     return is_connected(platform_client.data_socket);
 }
 
+bool eregec_connect_image_socket(void)
+{
+    platform_client.image_socket = connect_socket(IMAGE_SOCKET);
+    return is_connected(platform_client.image_socket);
+}
+
 void eregec_disconnect(void)
 {
     eregec_disconnect_data_socket();
     eregec_disconnect_command_socket();
+    eregec_disconnect_image_socket();
 }
 
 void eregec_disconnect_command_socket(void)
@@ -337,6 +354,15 @@ void eregec_disconnect_data_socket(void)
     }
 }
 
+void eregec_disconnect_image_socket(void)
+{
+    if (is_connected(platform_client.image_socket)) {
+        closesocket(platform_client.image_socket);
+        eregec_pinfo("Image Socket: close()\n");
+        platform_client.image_socket = BAD_SOCKET;
+    }
+}
+
 bool eregec_is_command_socket_connected(void)
 {
     return is_connected(platform_client.command_socket);
@@ -347,9 +373,16 @@ bool eregec_is_data_socket_connected(void)
     return is_connected(platform_client.data_socket);
 }
 
+bool eregec_is_image_socket_connected(void)
+{
+    return is_connected(platform_client.data_socket);
+}
+
 bool eregec_is_connected(void)
 {
-    return eregec_is_command_socket_connected() || eregec_is_data_socket_connected();
+    return eregec_is_command_socket_connected() || 
+           eregec_is_data_socket_connected() ||
+           eregec_is_image_socket_connected();
 }
 
 void eregec_set_command_callback(const char *(*callback_func)(const char *cmd))
