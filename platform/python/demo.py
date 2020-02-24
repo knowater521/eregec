@@ -5,7 +5,7 @@ def main():
     name = 'eregec'
     password = '123456'
     host = '39.108.3.243'
-    port = 51435
+    port = 51436
 
     platform_cilent = PlatformClient(name, password, host, port)
     if not platform_cilent.connect():

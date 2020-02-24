@@ -219,12 +219,16 @@ class PlatformClient:
             try:
                 if self.__is_image_start:
                     if not self.__image_cap:
-                        self.__image_cap = cv2.VideoCapture(0)
-                        self.__image_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 100)
-                        self.__image_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 100)
+                        self.__image_cap = cv2.VideoCapture("camera.mp4")
+                        #self.__image_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 100)
+                        #self.__image_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 100)
                         self.__pinfo('Image Socket: start send image ...')
 
-                    _, frame = self.__image_cap.read()
+                    ret, frame = self.__image_cap.read()
+                    if not ret:
+                        self.__image_cap.release()
+                        self.__image_cap = None
+                        continue
 
                     cnt = (cnt + 1) % 2
                     if cnt:
