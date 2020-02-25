@@ -7,6 +7,10 @@
 #include <errno.h>
 #include <signal.h>
 
+#define eregec_perror(...)    printf(M_COLOR"PlatformClient: "E_COLOR"Error: "R_COLOR __VA_ARGS__)
+#define eregec_pwarning(...)  printf(M_COLOR"PlatformClient: "W_COLOR"Warning: "R_COLOR __VA_ARGS__)
+#define eregec_pinfo(...)     printf(M_COLOR"PlatformClient: "I_COLOR"Info: "R_COLOR __VA_ARGS__)
+
 #ifdef __linux
 
 #include <unistd.h>
@@ -26,16 +30,16 @@ static pthread_t _pid;
 #define I_COLOR  "\033[33m"
 #define R_COLOR  "\033[0m"
 
-#define socket_init()       ((void)0)  
-#define closesocket(fd)     close(fd)
-#define get_socket_error()  strerror(errno) 
-#define start_thread(func)  pthread_create(&_pid, NULL, (void *(*)(void *))func, NULL)
-
+#define socket_init()           ((void)0)  
+#define closesocket(fd)         close(fd)
+#define get_socket_error()      strerror(errno) 
+#define start_thread(func)      pthread_create(&_pid, NULL, (void *(*)(void *))func, NULL)
+#define ignore_sigpipe_signal() signal(SIGPIPE, SIG_IGN)
 #endif /* __linux */
 
 #ifdef  _WIN32
-#include <Windows.h>
 #include <WinSock2.h>
+#include <Windows.h>
 #include <Ws2tcpip.h>
 
 #ifdef _MSC_VER 
@@ -43,8 +47,10 @@ static pthread_t _pid;
 #endif
 
 /* 不对windows通过颜色输出支持 */
+#define M_COLOR  ""
 #define E_COLOR  ""
 #define W_COLOR  ""
+#define I_COLOR  ""
 #define R_COLOR  ""
 
 typedef SOCKET socket_t;
@@ -58,27 +64,26 @@ static const char *get_socket_error(void)
     return socket_error_buf;
 }
 
-static bool eregec_socket_init() 
+static bool socket_init() 
 {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData)) {
-        eregec_perror("Socke Init Failed: %s", get_get_socket_error());
+        eregec_perror("Socke Init Failed: %s", get_socket_error());
         return false;
     }
 
     return true;
 } 
 
-#define start_thread(func)  CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, NULL, 0, NULL)
+#define start_thread(func)       CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, NULL, 0, NULL)
+#define ignore_sigpipe_signal()  /* windows下无需处理SIGPIPE信号 */
 
 #endif /* _WIN32 */
 
 
 #include "eregec.h"
 
-#define eregec_perror(...)    printf(M_COLOR"PlatformClient: "E_COLOR"Error: "R_COLOR __VA_ARGS__)
-#define eregec_pwarning(...)  printf(M_COLOR"PlatformClient: "W_COLOR"Warning: "R_COLOR __VA_ARGS__)
-#define eregec_pinfo(...)     printf(M_COLOR"PlatformClient: "I_COLOR"Info: "R_COLOR __VA_ARGS__)
+
 #define BAD_SOCKET            (socket_t)0
 
 #define is_connected(fd)      ((fd) && (fd) != BAD_SOCKET)
@@ -280,6 +285,8 @@ void eregec_init(const char *name, const char *password, const char *host, int p
     platform_client.port = port;
     platform_client.is_init = true;
 
+    socket_init();
+
     if (is_connected(platform_client.data_socket)) {
         closesocket(platform_client.data_socket);
         eregec_pwarning("Data Socket was connected before init. close it.");
@@ -299,7 +306,7 @@ void eregec_init(const char *name, const char *password, const char *host, int p
     platform_client.command_socket = BAD_SOCKET;
     platform_client.data_socket = BAD_SOCKET;
 
-    signal(SIGPIPE, SIG_IGN);
+    ignore_sigpipe_signal();
 }
 
 bool eregec_connect(void)
