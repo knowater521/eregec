@@ -88,5 +88,5 @@ int main(int argc, char *argv[])
 
     printf("Warning: all socket broken.\n");
     eregec_disconnect();
-	return 0;
+    return 0;
 }
