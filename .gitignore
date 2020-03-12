@@ -4,4 +4,5 @@
 **/db.sqlite3
 **/_book
 **/platform-client
+**/migrations
 update-book

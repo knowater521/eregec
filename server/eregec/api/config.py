@@ -13,7 +13,7 @@ user_data_dir = _os.path.join(_settings.BASE_DIR, "data/user")
 platform_socket_bind_ip = '0.0.0.0'
 
 # 平台端socket的监听端口
-platform_socket_port = 51436
+platform_socket_port = 51435
 
 # 平台端socket最大监听数
 platform_socket_max_listen = 50

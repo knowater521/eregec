@@ -2,7 +2,7 @@ from api import api
 from api.user import User
 from api import config
 from api.platform import PlatformServer, Platform
-
+from api.models import UserInfo
 from django.http import HttpResponse, StreamingHttpResponse
 
 # 启动平台服务器，监听平台的socket连接
@@ -14,6 +14,24 @@ PlatformServer.run_server()
 def index(request):
     return api.json_data({"details": 'Welcome to visit Electronic Ecological Estanciero Server!'})
 
+def register(request):
+    # 请求参数检查
+    res, err = api.get_http_arg(request, ('name', 'password'))
+    if err:
+        return api.json_error(err, api.HttpArgumentError)
+
+    user_info = api.get_user_info_from_database(res['name'])
+    if user_info:
+        return api.json_error('user {} already exists'.format(res['name']), api.UserAlreadyExistsError)
+
+    user_info = UserInfo()
+    user_info.username = res['name']
+    user_info.password = res['password']
+    user_info.sex = True
+    user_info.tel = "13555555555"
+    user_info.save()
+
+    return api.json_data()
 
 # eregec/api/login
 # 用户登录
@@ -39,7 +57,7 @@ def login(request):
     User.add_online_user(user)
 
     # 返回userid
-    return api.json_data({'userid': user.get_id()})
+    return api.json_data({'userid': user.get_userid()})
 
 
 # eregec/api/logout
@@ -74,14 +92,14 @@ def platform_data(request):
         return err
 
     # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_name(user.name)
+    platform = PlatformServer.get_platform_by_name(user.username)
     if not platform:
         return api.json_error("platform not connected!", api.PlatformNotConnectError)
 
     # 取出平台数据，并返回相关数据
     data, err = platform.get_data()
     if err:
-        return api.json_error(err, api.DataFaildError)
+        return api.json_error(err, api.DataFailedError)
     return api.json_data(data)
 
 # eregec/api/platform-info
@@ -135,7 +153,7 @@ def cmd(request):
     # 执行命令
     res = platform.send_cmd(res['string'])
     if res:
-        return api.json_error(res, api.CommandFaildError)
+        return api.json_error(res, api.CommandFailedError)
     return api.json_data() 
 
     
@@ -153,7 +171,7 @@ def image(request):
         return err
 
         # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_name(user.name)
+    platform = PlatformServer.get_platform_by_name(user.username)
     if not platform:
         return api.json_error('platform not connected!', api.PlatformNotConnectError)
 
@@ -175,7 +193,7 @@ def stream(request):
         return err
 
         # 要求平台对象，如果没有找到，返回错误信息
-    platform = PlatformServer.get_platform_by_name(user.name)
+    platform = PlatformServer.get_platform_by_name(user.username)
     if not platform:
         return api.json_error('platform not connected!', api.PlatformNotConnectError)
 

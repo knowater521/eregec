@@ -4,6 +4,7 @@
 
 from django.http import JsonResponse
 from api.user import User
+from api.models import UserInfo, PlatformInfo
 
 __M_COLOR = "\033[0m"
 __E_COLOR = "\033[31m"
@@ -26,9 +27,9 @@ HttpArgumentError = ApiError(1, "HttpArgumentError")
 UserLoginError = ApiError(2, "UserLoginError")
 UserIdError = ApiError(3, "UserIdError")
 PlatformNotConnectError = ApiError(4, "PlatformNotConnectError")
-DataFaildError = ApiError(5, "DataFaildError")
-CommandFaildError = ApiError(6, "CommandFaildError")
-
+DataFailedError = ApiError(5, "DataFailedError")
+CommandFailedError = ApiError(6, "CommandFailedError")
+UserAlreadyExistsError = ApiError(7, "UserAlreadyExistsError")
 
 # 从http request里的POST/GET请求里取出args里指定的参数
 #
@@ -51,6 +52,18 @@ def get_http_arg(request, args):
 
     return res, err
 
+def get_user_info_from_database(username):
+    try:
+        return UserInfo.objects.get(username=username)
+    except:
+        return None
+
+def get_platform_info_from_database(username):
+    try:
+        return PlatformInfo.objects.get(username=username)
+    except:
+        return None
+
 
 # 通过http request指定的userid参数作为id，并返回在指定id的在线用户
 # 如果不存在该用户，返回(None, 错误描述的JsonResponse对象)
@@ -62,7 +75,7 @@ def get_online_user_by_request(request, args=()):
     if err:
         return None, None, json_error(err, HttpArgumentError)
 
-    user = User.get_online_user_by_id(res['userid'])
+    user = User.get_online_user_by_userid(res['userid'])
     if not user:
         return None, res, json_error('no such user id', UserIdError)
     return user, res, None
