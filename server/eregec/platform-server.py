@@ -1,13 +1,16 @@
-# platform.py
+#!/usr/bin/python3
+# platform-server.py
 # 平台socket服务端和平台数据接收
-'''
+
 import threading
 import socket
 import numpy as np;
 import cv2
+import os, time
 
-from api import config, api
-from api.user import User
+import utils as api
+import config
+from dbapi import DBApi
 
 # 平台socket类型
 # 平台和服务器建立两条TCP Socket作为普通数据传输
@@ -36,13 +39,21 @@ class PlatformServer:
                 if not _config.startswith('_'):
                     api.pinfo("    {} = {}".format(_config, getattr(config, _config)))
             print()
-            
+
             self.accept_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.accept_socket.bind(('0.0.0.0', config.platform_socket_port))
             self.accept_socket.listen(config.platform_socket_max_listen)
         except Exception as e:
-            import os
             api.perror('平台服务器PlatformServer启动失败：{}'.format(e))
+            os._exit(1)
+        try:
+            DBApi('api_command').delete().execute(True)
+            DBApi('api_data').delete().execute(True)
+        except Exception as e:
+            api.perror('平台服务器PlatformServer数据库初始化失败：{}'.format(e))
+            api.pinfo('可能原因是您未迁移数据库，请尝试：')
+            api.pinfo('    python3 manage.py makemigrations')
+            api.pinfo('    python3 manage.py migrate')
             os._exit(1)
 
         # 开启一个线程，监听端口，等待平台连接
@@ -99,6 +110,12 @@ class PlatformServer:
             platform.close()
         PlatformServer._platform.clear()
 
+    def get_user_password(self, username, conn):
+        ret = conn.cursor().execute('select password from api_userinfo where username="{}"'.format(username))
+        for password in ret:
+            return password[0]
+        return ''
+
     # 监听端口，等待平台的连接
     def __accept(self):
         api.pinfo('PlatformServer Thread is start running ...')
@@ -122,16 +139,23 @@ class PlatformServer:
             # 将socke发来的身份信息填充到平台对象
             # 并将其添加的在线平台列表里
             #api.pinfo('{} head: "{}"'.format(addr, head_string.replace('\n', ' || ')))
-            user, err = User.get_user(res['name'], res['password'], False)
+            err = ''
+            db = DBApi('api_userinfo')
+            db.select('password').where(username=res['name']).execute()
+            if not db.first():
+                err = 'user not found'
+            if db.first()[0] != res['password']:
+                err = 'password error'
             if err:
                 client.send(err.encode())
+                client.close()
                 return
             client.send(b'OK')
 
             platform = PlatformServer.get_platform_by_name(res['name'])
             if not platform:
                 api.pinfo('create new platform object for name "{}"'.format(res['name']))
-                platform = Platform(res['name'], user)
+                platform = Platform(res['name'])
 
             if res['type'] == DataSocket:
                 if platform.data_socket:
@@ -139,12 +163,14 @@ class PlatformServer:
                     platform.data_socket.close()
                 platform.data_socket = client
                 api.pinfo('{}: Data Socke Connected'.format(platform))
+                db.update(dataok=1).where(username=res['name']).execute()
                 platform.watch_data_socket()
             elif res['type'] == CommandSocket:
                 if platform.command_socket:
                     api.pwarning("old Command Socket found, close it")
                     platform.command_socket.close()
                 platform.command_socket = client
+                db.update(commandok=1).where(username=res['name']).execute()
                 api.pinfo('{}: Cammand Socke Connected'.format(platform))
             elif res['type'] == ImageSocket:
                 if platform.image_socket:
@@ -152,6 +178,7 @@ class PlatformServer:
                     platform.image_socket.close()
                 platform.image_socket = client
                 api.pinfo('{}: Image Socke Connected'.format(platform))
+                db.update(imageok=1).where(username=res['name']).execute()
                 platform.watch_image_socket()
 
             if platform not in self._platform:
@@ -163,11 +190,10 @@ class PlatformServer:
 
 # 平台对象，表示一个在线的平台
 class Platform:
-    def __init__(self, name, user=None):
+    def __init__(self, name):
         self.data_active = False
         self.image_active = False
         self.name = name
-        self.user = user
         self.data_socket = None
         self.command_socket = None
         self.image_socket = None
@@ -178,15 +204,6 @@ class Platform:
     def __str__(self):
         return 'Platform{{name="{}"}}'.format(self.name)
 
-    # 获取平台的当前的上报数据
-    def get_data(self):
-        if not self.data_socket:
-            return None, 'data socket has been disconnected'
-        return self.data, ''
-
-    # 获取平台信息
-    def get_info(self):
-        return self.user.platform_info if self.user else {}
 
     # 向平台发送一个命令
     # 在这里将命令写入cmd里，run函数发现cmd不为空时会通过command_socket发送命令
@@ -228,6 +245,34 @@ class Platform:
             self.image_socket.close()
             self.image_socket = None
 
+    def _save_data(self, name, type, value):
+
+        db = DBApi('api_data')
+        timestap = int(time.time())
+
+        db.select('timestamp').where(username=self.name, name=name, iscurrent=1).execute()
+        if db.data():
+            print('update')
+            db.update(
+                type=type, 
+                timestamp=timestap, 
+                value=value
+            ).where(
+                username=self.name, 
+                name=name, 
+                iscurrent=1
+            ).execute()
+        else:
+            print('insert')
+            db.insert(
+                username=self.name, 
+                name=name, 
+                iscurrent=1, 
+                type=type, 
+                timestamp=timestap, 
+                value=value
+            ).execute()
+
     # 解析data_socket接收到的平台上报的数据
     # data_socket一次性上报所有的数据
     #
@@ -257,11 +302,16 @@ class Platform:
                 data_value = data_tokens[2].strip()
                 if data_type == 'int':
                     data_value = int(data_value)
+                    data_type = 0
                 elif data_type == 'float':
                     data_value = float(data_value)
-                elif data_type != 'string':
+                    data_type = 1
+                elif data_type == 'string':
+                    data_type = 2
+                else:
                     return 'Data Format Error: {}: Unknown type'.format(data_string)
-                self.data[data_name] = data_value
+                #self.data[data_name] = data_value
+                self._save_data(data_name, data_type, data_value)
         except ValueError as e:
             return 'Data Format Error: {}: {}'.format(data_string, e)
         return 'OK'
@@ -354,4 +404,12 @@ class Platform:
 
     def get_image_data(self):
         return self.img_data
-'''
+
+if __name__ == "__main__":
+    PlatformServer.run_server()
+
+    try: 
+        while True: pass
+    except KeyboardInterrupt:
+        print('Ctrl-C')
+        api.pinfo('exit.')

@@ -1,6 +1,6 @@
 # user.py
 # 处理用户信息
-
+'''
 import os, json
 from api import config, api
 
@@ -70,8 +70,8 @@ class User:
             err = 'password error'
             user = None
         elif not user:
-            user_info = api.get_user_info_from_database(name)
-            platform_info = api.get_platform_info_from_database(name)
+            user_info = api.get_user_info_from_db(name)
+            platform_info = api.get_platform_info_from_db(name)
             if not user_info:
                 err = 'user {} not exists'.format(name)
             else:
@@ -81,3 +81,4 @@ class User:
                     userid = _create_new_id() if create_id else name
                     user = User(user_info, platform_info, userid)
         return user, err
+'''

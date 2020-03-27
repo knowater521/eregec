@@ -38,7 +38,8 @@ const char *resolve_command(const char *cmd)
 
 int main(int argc, char *argv[])
 {
-    char name[128] = "mxb";
+#if 0
+    char name[128] = "eregec";
     char password[128] = "123456";
     const char *arg;
 
@@ -66,8 +67,9 @@ int main(int argc, char *argv[])
         } else
             exit_cmdline_error("%s: 未知选项。尝试：--help。\n", argv[i]);
     }
+#endif
 
-    eregec_init(name, password, "39.108.3.243", 51435);
+    eregec_init("eregec", "123456", "39.108.3.243", 51435);
 
     if (!eregec_connect()) {
         printf("Error: Connect Server Failed!\n");
